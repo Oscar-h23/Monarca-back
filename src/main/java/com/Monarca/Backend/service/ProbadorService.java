@@ -23,7 +23,8 @@ public class ProbadorService {
  private static final String ORIGEN="https://api.tryonlabs.ai";
  private final String token;
  private final AgalazProbadorService agalaz;
- @Value("${monarca.tryon.provider:agalaz}") private String provider="agalaz";
+ private final TryOnCloudProbadorService tryoncloud;
+ @Value("${monarca.tryon.provider:tryoncloud}") private String provider="tryoncloud";
  // Ajustes de prueba: modificables sin exponer la clave en Angular.
  @Value("${monarca.tryon.resolution:1k}") private String resolution="1k";
  @Value("${monarca.tryon.generation-mode:fast}") private String generationMode="fast";
@@ -36,18 +37,20 @@ public class ProbadorService {
 
  public ProbadorService(@Value("${monarca.tryon.token:}") String token,
      PerfilService perfiles,FotoProbadorRepository fotos,ProductoService productos,
-     AgalazProbadorService agalaz){
+     AgalazProbadorService agalaz,TryOnCloudProbadorService tryoncloud){
    this.token=token;this.perfiles=perfiles;this.fotos=fotos;this.productos=productos;this.agalaz=agalaz;
+   this.tryoncloud=tryoncloud;
  }
  public String proveedorActual(){
-   return "agalaz".equalsIgnoreCase(provider) ? "Agalaz" :
+   return "tryoncloud".equalsIgnoreCase(provider) ? "TryOnCloud" :
+          "agalaz".equalsIgnoreCase(provider) ? "Agalaz" :
           "tryonlabs".equalsIgnoreCase(provider) ? "TryOn Labs" : "no configurado";
  }
  public byte[] probar(String correo,Long productoId,boolean consentimiento){
    if(!consentimiento)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Debes aceptar enviar tu foto para esta prueba.");
-   if(!"agalaz".equalsIgnoreCase(provider)&&!"tryonlabs".equalsIgnoreCase(provider))
+   if(!"tryoncloud".equalsIgnoreCase(provider)&&!"agalaz".equalsIgnoreCase(provider)&&!"tryonlabs".equalsIgnoreCase(provider))
      throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-       "Proveedor de probador no admitido. Configura TRYON_PROVIDER como agalaz o tryonlabs.");
+       "Proveedor no admitido: usa tryoncloud, agalaz o tryonlabs en TRYON_PROVIDER.");
    if("tryonlabs".equalsIgnoreCase(provider)&&(token==null||token.isBlank()))
      throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
        "El probador TryOn Labs necesita configurar TRYONLABS_TOKEN en Monarca-back.");
@@ -66,6 +69,8 @@ public class ProbadorService {
      byte[] prenda=descargarPrenda(url);
      String prendaMime=PerfilService.detectarMime(prenda);
      if(prendaMime==null)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"La imagen de la prenda no es JPG, PNG ni WebP.");
+     if("tryoncloud".equalsIgnoreCase(provider))
+       return tryoncloud.generar(persona.getDatos(),prenda);
      if("agalaz".equalsIgnoreCase(provider))
        return agalaz.generar(persona.getDatos(),prenda);
      String boundary="monarca-"+UUID.randomUUID();
