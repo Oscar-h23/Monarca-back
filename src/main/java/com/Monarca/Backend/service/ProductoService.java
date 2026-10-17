@@ -583,7 +583,7 @@ public class ProductoService {
         List<VarianteProductoResponseDto> variantes = varianteRepository
                 .findByProducto_IdProductoAndActivoTrue(producto.getIdProducto()).stream()
                 .map(v -> new VarianteProductoResponseDto(v.getIdVariante(), v.getSku(),
-                        v.getTalla(), v.getColor(), v.getColorHex(), v.getPrecio(), v.getStock()))
+                        v.getTalla(), v.getColor(), v.getColorHex(), v.getPrecio(), v.getStock(), v.getStockMinimo()))
                 .toList();
         String imagen = imagenRepository.findFirstByProducto_IdProductoAndPrincipalTrue(producto.getIdProducto())
                 .map(ImagenProducto::getUrl).orElse(null);
