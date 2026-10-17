@@ -62,24 +62,24 @@ public class ProbadorService {
        .header("Content-Type","multipart/form-data; boundary="+boundary)
        .POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
      HttpResponse<byte[]> created=http.send(start,HttpResponse.BodyHandlers.ofByteArray());
-     if(created.statusCode()!=200)throw falloProveedor(created.statusCode());
+     if(created.statusCode()!=200)throw falloProveedor(created.statusCode(), "generación");
      JsonNode data=json.readTree(created.body());
      String id=data.path("id").asText("");
-     if(id.isBlank())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"El proveedor no devolvió un identificador de resultado.");
+     if(id.isBlank())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"TryOn Labs respondió sin identificador de resultado. Revisa el formato de respuesta de la API; no repitas la generación hasta comprobar los créditos.");
      String query=URLEncoder.encode(id,StandardCharsets.UTF_8);
      HttpRequest download=HttpRequest.newBuilder(
          URI.create(ORIGEN+"/api/v1/vton/download/?experiment_id="+query))
        .timeout(Duration.ofSeconds(45)).header("Authorization","Bearer "+token).GET().build();
      HttpResponse<byte[]> result=http.send(download,HttpResponse.BodyHandlers.ofByteArray());
-     if(result.statusCode()!=200)throw falloProveedor(result.statusCode());
+     if(result.statusCode()!=200)throw falloProveedor(result.statusCode(), "descarga");
      if(result.body().length>12_000_000||PerfilService.detectarMime(result.body())==null)
-       throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"La API devolvió un formato de imagen no admitido.");
+       throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"TryOn Labs devolvió una imagen de resultado no válida o demasiado grande.");
      return result.body();
    }catch(ResponseStatusException e){throw e;}
    catch(InterruptedException e){Thread.currentThread().interrupt();
      throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"La generación fue interrumpida.",e);}
    catch(IOException|IllegalArgumentException e){
-     throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"No se pudo procesar el probador virtual.",e);
+     throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"No se pudo conectar o interpretar la respuesta de TryOn Labs. Revisa el registro de Spring Boot.",e);
    }
  }
 
@@ -121,17 +121,18 @@ public class ProbadorService {
    out.write(("--"+b+"\r\nContent-Disposition: form-data; name=\""+field+
      "\"\r\n\r\n"+value+"\r\n").getBytes(StandardCharsets.UTF_8));
  }
- private ResponseStatusException falloProveedor(int code){
-   if(code==400)
-     return new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-       "TryOn Labs rechazó los datos o la configuración de la prueba.");
+ private ResponseStatusException falloProveedor(int code,String etapa){
+   // Comunicar solo el HTTP de la API: no registrar fotos, tokens ni cuerpos privados.
+   if(code==400||code==422)
+     return new ResponseStatusException(HttpStatus.BAD_REQUEST,
+       "TryOn Labs rechazó los parámetros de "+etapa+" (HTTP "+code+"). Verifica resolución y modo admitidos; no repitas la solicitud sin revisar.");
    if(code==402||code==429)
      return new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-       "No hay créditos suficientes o se alcanzó el límite de pruebas del proveedor.");
+       "TryOn Labs indicó créditos insuficientes o límite de solicitudes (HTTP "+code+").");
    if(code==401||code==403)
      return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-       "El token del probador virtual no es válido o expiró.");
+       "TryOn Labs rechazó el token de acceso (HTTP "+code+").");
    return new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-       "El proveedor del probador no está disponible (HTTP "+code+").");
+     "TryOn Labs devolvió HTTP "+code+" durante la "+etapa+". No se puede determinar si se descontaron créditos.");
  }
 }
