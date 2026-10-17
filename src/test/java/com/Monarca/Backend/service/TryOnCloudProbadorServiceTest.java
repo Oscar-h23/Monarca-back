@@ -27,9 +27,22 @@ class TryOnCloudProbadorServiceTest {
     }
 
     @Test
-    void bloqueaWebpAntesDeContactarLaApi() {
+    void convierteWebpAntesDeContactarLaApi() throws Exception {
+        byte[] webp = java.util.Base64.getDecoder().decode(
+                "UklGRhwAAABXRUJQVlA4TA8AAAAvB8ABEAcQ/Y8CBiKi/wEA");
+        byte[] jpeg = TryOnCloudProbadorService.prepararImagen(webp);
+        assertEquals("image/jpeg", PerfilService.detectarMime(jpeg));
+        byte[] form = TryOnCloudProbadorService.crearMultipart("limite", webp, webp);
+        String body = new String(form, StandardCharsets.ISO_8859_1);
+        assertTrue(body.contains("name=\"person_image\"; filename=\"person_image.jpg\""));
+        assertTrue(body.contains("name=\"garment_image\"; filename=\"garment_image.jpg\""));
+    }
+
+    @Test
+    void rechazaWebpCorruptoSinEnviarDatos() {
         byte[] webp="RIFF1234WEBP".getBytes(StandardCharsets.US_ASCII);
-        assertThrows(ResponseStatusException.class,
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
                 () -> TryOnCloudProbadorService.crearMultipart("limite", webp, PNG));
+        assertEquals(400, error.getStatusCode().value());
     }
 }

@@ -94,6 +94,11 @@ Para volver a la integración antigua establece `TRYON_PROVIDER=tryonlabs` y con
 
 El proveedor por defecto ahora es `TRYON_PROVIDER=tryoncloud`. Regístrate en https://www.tryoncloud.com/signup, abre Dashboard > Developer API y genera una clave privada con prefijo `tk_dev_v1_`. Configúrala exclusivamente en el backend como `TRYONCLOUD_API_KEY`; no la expongas en Angular ni la publiques en Git.
 
-TryOnCloud publica 10 pruebas gratuitas sin tarjeta de crédito; después se paga por generación. Esta es la **Developer API** `POST https://www.tryoncloud.com/api/v1/generate` (no confundir con la Platform API `/api/v1/tryon`). Envía `person_image` y `garment_image` como archivos multipart y devuelve la imagen directamente en el cuerpo HTTP. La documentación especifica imágenes JPEG o PNG, por lo que el backend rechaza WebP localmente antes de gastar créditos. No hay reintentos automáticos para evitar consumo accidental.
+TryOnCloud publica 10 pruebas gratuitas sin tarjeta de crédito; después se paga por generación. Esta es la **Developer API** `POST https://www.tryoncloud.com/api/v1/generate` (no confundir con la Platform API `/api/v1/tryon`). Envía `person_image` y `garment_image` como archivos multipart y devuelve la imagen directamente en el cuerpo HTTP. La documentación especifica imágenes JPEG o PNG. El backend convierte automáticamente WebP a JPEG antes de generar la solicitud, sin persistir la imagen transformada. No hay reintentos automáticos para evitar consumo accidental.
 
 El nombre del proveedor activo puede consultarse en `GET /api/probador/configuracion` para solicitar consentimiento informado en el frontend. Cambiar de API solo requiere cambiar `TRYON_PROVIDER` a `tryoncloud`, `agalaz` o `tryonlabs` y configurar las credenciales respectivas. No cambian las tablas de Supabase ni se realizan peticiones reales durante GitHub Actions.
+
+
+### Conversión WebP en TryOnCloud
+
+Monarca-back convierte en memoria las fotografías WebP almacenadas en el perfil o enlazadas desde productos a JPEG con TwelveMonkeys ImageIO (3.13.0), solo cuando el proveedor activo es TryOnCloud. Limita la decodificación a 20 MP y reduce el lado máximo a 2048 píxeles, aplicando fondo blanco donde haya transparencia. No modifica los archivos de la base de datos, no requiere migración y no llama a TryOnCloud hasta que la conversión sea correcta. Se incluyen pruebas con un WebP real y otro corrupto, sin consumir créditos.
