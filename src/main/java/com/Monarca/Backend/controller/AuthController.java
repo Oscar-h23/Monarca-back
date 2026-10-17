@@ -19,6 +19,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import com.Monarca.Backend.security.CustomUserDetailsService;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,6 +43,9 @@ public class AuthController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private CustomUserDetailsService userDetailsService;
 
 
     // =========================================================
@@ -143,7 +148,7 @@ public class AuthController {
 
             // 2. Obtener usuario autenticado
             UserDetails userDetails =
-                    (UserDetails) authentication.getPrincipal();
+                    userDetailsService.loadUserByUsername(authentication.getName());
 
 
             // 3. Generar JWT
