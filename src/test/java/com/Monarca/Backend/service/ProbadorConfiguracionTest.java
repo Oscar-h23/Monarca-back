@@ -23,7 +23,7 @@ class ProbadorConfiguracionTest {
         byte[] cuerpo = (byte[]) metodo.invoke(service, "boundary",
                 foto, new byte[]{1, 2, 3}, "image/png");
         String solicitud = new String(cuerpo, StandardCharsets.ISO_8859_1);
-        assertTrue(solicitud.contains("name=\"resolution\"\\r\\n\\r\\n1k\\r\\n"));
-        assertTrue(solicitud.contains("name=\"generation_mode\"\\r\\n\\r\\nbalanced\\r\\n"));
+        assertTrue(solicitud.contains("name=\"resolution\"\r\n\r\n1k\r\n"));
+        assertTrue(solicitud.contains("name=\"generation_mode\"\r\n\r\nbalanced\r\n"));
     }
 }
