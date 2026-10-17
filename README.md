@@ -65,3 +65,9 @@ La CI compila y ejecuta tests unitarios seleccionados. No hay todavía pruebas d
 - La IA genera una representación visual, no una medición real de ajuste ni una recomendación automática de talla.
 
 **Pruebas de integración pendientes:** el pipeline valida la compilación, pero no consume créditos reales de TryOn Labs; la primera prueba extremo a extremo necesita un token activo y una fotografía/prenda de prueba autorizadas.
+
+### Reducir el consumo de créditos del probador
+
+Para pruebas, el backend utiliza por defecto `resolution=1k` y `generation_mode=balanced`, en lugar de `2k` y `quality`. Se pueden cambiar sin editar código mediante `TRYON_RESOLUTION` y `TRYON_GENERATION_MODE` en el backend. **No existe una tarifa oficial confirmada para esta combinación:** revisa los créditos requeridos antes de volver a generar, porque una llamada puede consumir más de los 40 créditos restantes. No se consultan ni se gastan créditos al compilar o desplegar.
+
+La documentación pública de TryOn Labs indica que una generación exitosa descuenta créditos, pero no proporciona una tabla detallada de precios por resolución y modo: https://docs.tryonlabs.ai/api/vton-generate-create/

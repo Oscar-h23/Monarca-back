@@ -22,6 +22,9 @@ import java.util.UUID;
 public class ProbadorService {
  private static final String ORIGEN="https://api.tryonlabs.ai";
  private final String token;
+ // Ajustes de prueba: modificables sin exponer la clave en Angular.
+ @Value("${monarca.tryon.resolution:1k}") private String resolution="1k";
+ @Value("${monarca.tryon.generation-mode:balanced}") private String generationMode="balanced";
  private final PerfilService perfiles;
  private final FotoProbadorRepository fotos;
  private final ProductoService productos;
@@ -104,8 +107,8 @@ public class ProbadorService {
    ByteArrayOutputStream out=new ByteArrayOutputStream();
    parte(out,b,"person_image","persona.jpg",person.getMimeTipo(),person.getDatos());
    parte(out,b,"garment_image","prenda.jpg",garmentMime,garment);
-   campo(out,b,"resolution","2k");
-   campo(out,b,"generation_mode","quality");
+   campo(out,b,"resolution",resolution);
+   campo(out,b,"generation_mode",generationMode);
    out.write(("--"+b+"--\r\n").getBytes(StandardCharsets.UTF_8));
    return out.toByteArray();
  }
@@ -119,7 +122,10 @@ public class ProbadorService {
      "\"\r\n\r\n"+value+"\r\n").getBytes(StandardCharsets.UTF_8));
  }
  private ResponseStatusException falloProveedor(int code){
-   if(code==400||code==402||code==429)
+   if(code==400)
+     return new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+       "TryOn Labs rechazó los datos o la configuración de la prueba.");
+   if(code==402||code==429)
      return new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
        "No hay créditos suficientes o se alcanzó el límite de pruebas del proveedor.");
    if(code==401||code==403)
