@@ -140,6 +140,11 @@ public class ProductoService {
             ProductoDto dto
     ) {
 
+        // En edición, "variantes" contiene únicamente las tallas nuevas.
+        // Una lista vacía no altera las existentes.
+        List<VarianteProductoInputDto> nuevas = dto.getVariantes() == null
+                || dto.getVariantes().isEmpty()
+                ? List.of() : prepararVariantes(dto);
         validarImagen(dto.getImg());
         if (dto.getPrecioBase() != null && dto.getPrecioBase().signum() < 0) throw new IllegalArgumentException("Precio base inválido");
         if (dto.getPrecio() != null && dto.getPrecio().signum() < 0) throw new IllegalArgumentException("Precio inválido");
@@ -450,9 +455,49 @@ public class ProductoService {
         }
 
 
+        // Comprobar unicidad frente a las tallas ya guardadas, incluida
+        // la que se está editando. PostgreSQL conserva además su restricción UNIQUE.
+        if (!nuevas.isEmpty()) {
+            if (variantes.size() + nuevas.size() + (variantes.isEmpty() ? 1 : 0) > 40) {
+                throw new IllegalArgumentException("El producto admite un máximo de 40 variantes.");
+            }
+            Set<String> claves = new HashSet<>();
+            for (VarianteProducto existente : variantes) {
+                boolean seleccionada = existente.getIdVariante() != null
+                        && existente.getIdVariante().equals(variante.getIdVariante());
+                String talla = seleccionada ? variante.getTalla() : existente.getTalla();
+                String color = seleccionada ? variante.getColor() : existente.getColor();
+                claves.add(claveVariante(talla, color));
+            }
+            if (variantes.isEmpty()) {
+                claves.add(claveVariante(variante.getTalla(), variante.getColor()));
+            }
+            for (VarianteProductoInputDto nueva : nuevas) {
+                if (!claves.add(claveVariante(nueva.getTalla(), nueva.getColor()))) {
+                    throw new IllegalArgumentException("Ya existe la talla y color: "
+                            + nueva.getTalla() + " / " + nueva.getColor());
+                }
+            }
+        }
+
         varianteRepository.save(
                 variante
         );
+        // El alta de nuevas tallas comparte la misma transacción con la edición.
+        for (VarianteProductoInputDto nueva : nuevas) {
+            VarianteProducto adicional = new VarianteProducto();
+            adicional.setProducto(producto);
+            adicional.setSku(generarSku(producto));
+            adicional.setTalla(nueva.getTalla());
+            adicional.setColor(nueva.getColor());
+            adicional.setColorHex(nueva.getColorHex());
+            adicional.setPrecio(nueva.getPrecio());
+            adicional.setStock(nueva.getStock());
+            adicional.setStockMinimo(nueva.getStockMinimo());
+            adicional.setActivo(true);
+            varianteRepository.save(adicional);
+        }
+
 
 
         // =====================================================
@@ -734,6 +779,11 @@ public class ProductoService {
         }
     }
 
+
+    private String claveVariante(String talla, String color) {
+        return talla.trim().toLowerCase(Locale.ROOT) + "|"
+                + color.trim().toLowerCase(Locale.ROOT);
+    }
 
     /** Valida tallas y colores repetidos y conserva el alta antigua de una variante. */
     private List<VarianteProductoInputDto> prepararVariantes(ProductoDto dto) {

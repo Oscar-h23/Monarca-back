@@ -93,4 +93,94 @@ class ProductoVariantesTest {
         assertThrows(IllegalArgumentException.class, () -> service.guardar(dto));
         verifyNoInteractions(productos, variantes);
     }
+
+    private VarianteProducto varianteExistente(Producto producto, String talla, String color) {
+        VarianteProducto guardada = new VarianteProducto();
+        guardada.setIdVariante(10L);
+        guardada.setProducto(producto);
+        guardada.setTalla(talla);
+        guardada.setColor(color);
+        guardada.setPrecio(new BigDecimal("69.90"));
+        guardada.setStock(5);
+        guardada.setStockMinimo(2);
+        guardada.setSku("MON-17-EXISTENTE");
+        guardada.setActivo(true);
+        return guardada;
+    }
+
+    @Test void edicionPermiteAgregarTallasSinReemplazarLasExistentes() {
+        Producto producto = new Producto();
+        producto.setIdProducto(17L);
+        producto.setNombre("Blusa Elizabeth");
+        VarianteProducto existente = varianteExistente(producto, "S", "Negro");
+        when(productos.findById(17L)).thenReturn(Optional.of(producto));
+        when(productos.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(variantes.findByProducto_IdProducto(17L)).thenReturn(List.of(existente));
+        when(variantes.findByIdForUpdate(10L)).thenReturn(Optional.of(existente));
+
+        ProductoDto dto = producto();
+        dto.setIdVariante(10L);
+        dto.setTalla("S");
+        dto.setColor("Negro");
+        dto.setPrecio(new BigDecimal("69.90"));
+        dto.setStock(12);
+        dto.setStockMinimo(2);
+        dto.setVariantes(List.of(variante("M", "Negro", 8), variante("L", "Negro", 6)));
+
+        service.actualizar(17L, dto);
+
+        ArgumentCaptor<VarianteProducto> captor = ArgumentCaptor.forClass(VarianteProducto.class);
+        verify(variantes, times(3)).save(captor.capture());
+        assertEquals(List.of("S", "M", "L"), captor.getAllValues().stream()
+                .map(VarianteProducto::getTalla).toList());
+        assertEquals(List.of(12, 8, 6), captor.getAllValues().stream()
+                .map(VarianteProducto::getStock).toList());
+        assertEquals("MON-17-EXISTENTE", captor.getAllValues().get(0).getSku());
+        assertNotEquals(captor.getAllValues().get(1).getSku(), captor.getAllValues().get(2).getSku());
+    }
+
+    @Test void edicionRechazaDuplicadoFrenteATallaExistente() {
+        Producto producto = new Producto();
+        producto.setIdProducto(17L);
+        VarianteProducto existente = varianteExistente(producto, "M", "Negro");
+        when(productos.findById(17L)).thenReturn(Optional.of(producto));
+        when(productos.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(variantes.findByProducto_IdProducto(17L)).thenReturn(List.of(existente));
+        when(variantes.findByIdForUpdate(10L)).thenReturn(Optional.of(existente));
+
+        ProductoDto dto = producto();
+        dto.setIdVariante(10L);
+        dto.setTalla("M");
+        dto.setColor("Negro");
+        dto.setPrecio(new BigDecimal("69.90"));
+        dto.setStock(5);
+        dto.setVariantes(List.of(variante(" m ", "NEGRO", 3)));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.actualizar(17L, dto));
+        assertTrue(error.getMessage().contains("Ya existe"));
+        verify(variantes, never()).save(any());
+    }
+
+    @Test void edicionSinNuevasTallasConservaFlujoOriginal() {
+        Producto producto = new Producto();
+        producto.setIdProducto(17L);
+        VarianteProducto existente = varianteExistente(producto, "S", "Negro");
+        when(productos.findById(17L)).thenReturn(Optional.of(producto));
+        when(productos.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(variantes.findByProducto_IdProducto(17L)).thenReturn(List.of(existente));
+        when(variantes.findByIdForUpdate(10L)).thenReturn(Optional.of(existente));
+
+        ProductoDto dto = producto();
+        dto.setIdVariante(10L);
+        dto.setTalla("S");
+        dto.setColor("Negro");
+        dto.setPrecio(new BigDecimal("69.90"));
+        dto.setStock(14);
+        dto.setVariantes(List.of());
+
+        service.actualizar(17L, dto);
+        verify(variantes, times(1)).save(any());
+        assertEquals(14, existente.getStock());
+    }
 }
