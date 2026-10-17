@@ -7,6 +7,7 @@ import com.Monarca.Backend.model.Usuario;
 import com.Monarca.Backend.repository.RolRepository;
 import com.Monarca.Backend.repository.UsuarioRepository;
 import com.Monarca.Backend.security.JwtUtil;
+import com.Monarca.Backend.security.CustomUserDetailsService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,9 @@ public class AuthController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private CustomUserDetailsService userDetailsService;
 
 
     // =========================================================
@@ -143,7 +147,7 @@ public class AuthController {
 
             // 2. Obtener usuario autenticado
             UserDetails userDetails =
-                    (UserDetails) authentication.getPrincipal();
+                    userDetailsService.loadUserByUsername(authentication.getName());
 
 
             // 3. Generar JWT
