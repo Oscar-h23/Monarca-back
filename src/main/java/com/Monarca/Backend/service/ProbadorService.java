@@ -24,7 +24,7 @@ public class ProbadorService {
  private final String token;
  // Ajustes de prueba: modificables sin exponer la clave en Angular.
  @Value("${monarca.tryon.resolution:1k}") private String resolution="1k";
- @Value("${monarca.tryon.generation-mode:balanced}") private String generationMode="balanced";
+ @Value("${monarca.tryon.generation-mode:fast}") private String generationMode="fast";
  private final PerfilService perfiles;
  private final FotoProbadorRepository fotos;
  private final ProductoService productos;
@@ -62,7 +62,7 @@ public class ProbadorService {
        .header("Content-Type","multipart/form-data; boundary="+boundary)
        .POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
      HttpResponse<byte[]> created=http.send(start,HttpResponse.BodyHandlers.ofByteArray());
-     if(created.statusCode()!=200)throw falloProveedor(created.statusCode(), "generación");
+     if(created.statusCode()!=200)throw falloProveedor(created.statusCode(), "generación",created.body());
      JsonNode data=json.readTree(created.body());
      String id=data.path("id").asText("");
      if(id.isBlank())throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"TryOn Labs respondió sin identificador de resultado. Revisa el formato de respuesta de la API; no repitas la generación hasta comprobar los créditos.");
@@ -71,7 +71,7 @@ public class ProbadorService {
          URI.create(ORIGEN+"/api/v1/vton/download/?experiment_id="+query))
        .timeout(Duration.ofSeconds(45)).header("Authorization","Bearer "+token).GET().build();
      HttpResponse<byte[]> result=http.send(download,HttpResponse.BodyHandlers.ofByteArray());
-     if(result.statusCode()!=200)throw falloProveedor(result.statusCode(), "descarga");
+     if(result.statusCode()!=200)throw falloProveedor(result.statusCode(), "descarga",result.body());
      if(result.body().length>12_000_000||PerfilService.detectarMime(result.body())==null)
        throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"TryOn Labs devolvió una imagen de resultado no válida o demasiado grande.");
      return result.body();
@@ -105,8 +105,8 @@ public class ProbadorService {
  }
  private byte[] multipart(String b,FotoProbador person,byte[] garment,String garmentMime)throws IOException{
    ByteArrayOutputStream out=new ByteArrayOutputStream();
-   parte(out,b,"person_image","persona.jpg",person.getMimeTipo(),person.getDatos());
-   parte(out,b,"garment_image","prenda.jpg",garmentMime,garment);
+   parte(out,b,"person_image","persona."+extension(person.getMimeTipo()),person.getMimeTipo(),person.getDatos());
+   parte(out,b,"garment_image","prenda."+extension(garmentMime),garmentMime,garment);
    campo(out,b,"resolution",resolution);
    campo(out,b,"generation_mode",generationMode);
    out.write(("--"+b+"--\r\n").getBytes(StandardCharsets.UTF_8));
@@ -121,11 +121,49 @@ public class ProbadorService {
    out.write(("--"+b+"\r\nContent-Disposition: form-data; name=\""+field+
      "\"\r\n\r\n"+value+"\r\n").getBytes(StandardCharsets.UTF_8));
  }
- private ResponseStatusException falloProveedor(int code,String etapa){
-   // Comunicar solo el HTTP de la API: no registrar fotos, tokens ni cuerpos privados.
-   if(code==400||code==422)
+ private static String extension(String mime) {
+   return "image/png".equals(mime) ? "png" : "image/webp".equals(mime) ? "webp" : "jpg";
+ }
+
+ /**
+  * Solo presenta detalles de validación de campos conocidos. Nunca devuelve imágenes,
+  * tokens, URLs ni el cuerpo completo de la respuesta del proveedor.
+  */
+ private String erroresValidacion(byte[] respuesta) {
+   if(respuesta==null || respuesta.length==0 || respuesta.length>16_384)return "";
+   try {
+     JsonNode root=json.readTree(respuesta);
+     if(root==null || !root.isObject())return "";
+     String[] campos={"person_image","person_image_id","garment_image","garment_image_id",
+       "resolution","generation_mode","num_samples","category","detail","non_field_errors","error","message"};
+     java.util.List<String> errores=new java.util.ArrayList<>();
+     for(String campo:campos){
+       JsonNode node=root.path(campo);
+       if(node.isMissingNode()||node.isNull())continue;
+       if(node.isArray() && !node.isEmpty())node=node.get(0);
+       if(!node.isTextual())continue;
+       String valor=node.asText().replaceAll("[\\r\\n\\t]+"," ");
+       valor=valor.replaceAll("(?i)Bearer\\s+[^\\s,;]+","[credencial]")
+         .replaceAll("https?://[^\\s,;]+","[URL]")
+         .replaceAll("[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}","[correo]")
+         .replaceAll("[A-Za-z0-9_./+=-]{65,}","[dato]");
+       if(valor.length()>130)valor=valor.substring(0,130)+"…";
+       if(!valor.isBlank())errores.add(campo+": "+valor);
+       if(errores.size()>=3)break;
+     }
+     return String.join("; ",errores);
+   }catch(Exception ex){return "";}
+ }
+
+ private ResponseStatusException falloProveedor(int code,String etapa,byte[] respuesta){
+   // El endpoint de generación solo cobra créditos tras una generación exitosa,
+   // pero un error en la descarga podría ocurrir después de cobrarla.
+   if(code==400||code==422){
+     String detalle=erroresValidacion(respuesta);
      return new ResponseStatusException(HttpStatus.BAD_REQUEST,
-       "TryOn Labs rechazó los parámetros de "+etapa+" (HTTP "+code+"). Verifica resolución y modo admitidos; no repitas la solicitud sin revisar.");
+       "TryOn Labs rechazó los datos de "+etapa+" (HTTP "+code+"). "
+       +(detalle.isBlank()?"Revisa la respuesta original del proveedor.":detalle));
+   }
    if(code==402||code==429)
      return new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
        "TryOn Labs indicó créditos insuficientes o límite de solicitudes (HTTP "+code+").");

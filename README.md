@@ -68,6 +68,12 @@ La CI compila y ejecuta tests unitarios seleccionados. No hay todavía pruebas d
 
 ### Reducir el consumo de créditos del probador
 
-Para pruebas, el backend utiliza por defecto `resolution=1k` y `generation_mode=balanced`, en lugar de `2k` y `quality`. Se pueden cambiar sin editar código mediante `TRYON_RESOLUTION` y `TRYON_GENERATION_MODE` en el backend. **No existe una tarifa oficial confirmada para esta combinación:** revisa los créditos requeridos antes de volver a generar, porque una llamada puede consumir más de los 40 créditos restantes. No se consultan ni se gastan créditos al compilar o desplegar.
+Para pruebas, el backend utiliza por defecto `resolution=1k` y `generation_mode=fast`, en lugar de `2k` y `quality`. Se pueden cambiar sin editar código mediante `TRYON_RESOLUTION` y `TRYON_GENERATION_MODE` en el backend. **No existe una tarifa oficial confirmada para esta combinación:** revisa los créditos requeridos antes de volver a generar, porque una llamada puede consumir más de los 40 créditos restantes. No se consultan ni se gastan créditos al compilar o desplegar.
 
 La documentación pública de TryOn Labs indica que una generación exitosa descuenta créditos, pero no proporciona una tabla detallada de precios por resolución y modo: https://docs.tryonlabs.ai/api/vton-generate-create/
+
+### Diagnóstico HTTP 400 del probador (sin gastar créditos)
+
+La documentación oficial confirma que `1k`, `2k`, `4k` y `fast`, `balanced`, `quality` son valores permitidos. Por tanto, HTTP 400 también puede deberse a imágenes u otros campos. Ahora el backend extrae exclusivamente mensajes de validación de campos conocidos de la respuesta JSON de TryOn Labs y los comunica a la interfaz sin incluir imágenes ni credenciales. El MIME de las imágenes se respeta además al construir el nombre de cada archivo del `multipart/form-data`.
+
+**No se valida la API real en CI ni se gastan créditos.** Si el `.env` o IntelliJ tienen `TRYON_GENERATION_MODE=balanced`, esa variable prevalece y se debe cambiar manualmente a `fast`; no publicar tokens ni `.env`.
