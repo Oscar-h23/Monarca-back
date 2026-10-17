@@ -11,6 +11,10 @@ import java.util.Map;
 public class ProbadorController {
  private final ProbadorService service;
  public ProbadorController(ProbadorService service){this.service=service;}
+ @GetMapping("/configuracion")
+ public Map<String,String> configuracion(){
+   return Map.of("proveedor",service.proveedorActual());
+ }
  @PostMapping("/{idProducto}")
  public ResponseEntity<byte[]> generar(Principal principal,@PathVariable Long idProducto,
    @RequestBody Map<String,Boolean> body){

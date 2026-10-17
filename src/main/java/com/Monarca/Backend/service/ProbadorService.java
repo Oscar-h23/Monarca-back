@@ -39,6 +39,10 @@ public class ProbadorService {
      AgalazProbadorService agalaz){
    this.token=token;this.perfiles=perfiles;this.fotos=fotos;this.productos=productos;this.agalaz=agalaz;
  }
+ public String proveedorActual(){
+   return "agalaz".equalsIgnoreCase(provider) ? "Agalaz" :
+          "tryonlabs".equalsIgnoreCase(provider) ? "TryOn Labs" : "no configurado";
+ }
  public byte[] probar(String correo,Long productoId,boolean consentimiento){
    if(!consentimiento)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Debes aceptar enviar tu foto para esta prueba.");
    if(!"agalaz".equalsIgnoreCase(provider)&&!"tryonlabs".equalsIgnoreCase(provider))

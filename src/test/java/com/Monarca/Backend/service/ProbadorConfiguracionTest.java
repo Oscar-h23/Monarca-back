@@ -31,7 +31,7 @@ class ProbadorConfiguracionTest {
 
     @Test
     void reportaCampoInvalidoPeroNoExponeImagenesNiCredenciales() throws Exception {
-        ProbadorService service = new ProbadorService("", null, null, null);
+        ProbadorService service = new ProbadorService("", null, null, null, null);
         Method metodo = ProbadorService.class.getDeclaredMethod("erroresValidacion", byte[].class);
         metodo.setAccessible(true);
         byte[] respuesta = "{\"generation_mode\":[\"Invalid choice\"],\"secret\":\"NO_COMPARTIR\"}"
