@@ -8,10 +8,10 @@ Backend separado del [repositorio original Monarca](https://github.com/jpumaricr
 
 Proyecto conectado: **MonarcaDB** (Supabase, referencia `ldjuyocsuvvvbllgdclv`), región `us-east-1`.
 
-- Esquema privado `monarca`: 10 tablas compatibles con las entidades JPA de la aplicación.
+- Esquema privado `monarca`: tablas compatibles con las entidades JPA, incluida la tabla de fotografías del probador.
 - El SQL reproducible está en [`db/schema/monarca_initial.sql`](db/schema/monarca_initial.sql). Se aplicó en MonarcaDB mediante una migración registrada `monarca_initial_schema`.
 - Datos iniciales: roles `ADMIN`/`CLIENTE`, categorías `Tops`/`Bottoms`/`Calzado`/`Accesorios`, modalidad `Pago por coordinar`.
-- No hay usuarios administradores, productos ni pedidos iniciales. No se crean contraseñas de demostración.
+- Las cuentas, productos y pedidos se gestionan desde la aplicación; ningún usuario ni contraseña se crea automáticamente con el esquema.
 - El backend exige `spring.jpa.hibernate.ddl-auto=validate` y **no crea ni altera tablas al arrancar**.
 - El esquema `monarca` no está expuesto por la API REST pública de Supabase; se revocaron permisos a `anon` y `authenticated`. El asesor de Supabase marca RLS deshabilitado en tablas privadas; si alguna vez se expone este esquema a Data API habrá que diseñar las políticas RLS previamente.
 
@@ -53,3 +53,15 @@ No se procesa un cobro real: el método **Pago por coordinar** solo genera un pe
 ```
 
 La CI compila y ejecuta tests unitarios seleccionados. No hay todavía pruebas del backend conectado a PostgreSQL desde CI; para completar el despliegue se deben ejecutar pruebas de integración y revisar CORS, seguridad y backups.
+
+## Mi perfil y probador virtual (demostración)
+
+- La migración aditiva [`db/migrations/20261017_perfil_probador.sql`](db/migrations/20261017_perfil_probador.sql) añade datos de entrega al usuario y la tabla privada `monarca.fotos_probador`. Ya fue aplicada al proyecto MonarcaDB; ejecútala en cualquier otra base de pruebas antes de arrancar con `ddl-auto=validate`.
+- El usuario autenticado administra solo sus datos mediante `GET/PUT /api/perfil` y su imagen mediante `POST/GET/DELETE /api/perfil/foto`. Imagen JPG/PNG/WebP con un máximo de 4 MB. Se almacena en PostgreSQL en un esquema privado y solo se lee a través del JWT del usuario.
+- `POST /api/probador/{idProducto}` con `{\"consentimiento\":true}` solicita al proveedor una prueba con la foto privada y la imagen HTTPS del producto; el backend nunca envía su token al navegador.
+- El proveedor actual es [TryOn Labs](https://docs.tryonlabs.ai/) y ofrece créditos de prueba limitados. Regístrate y verifica el correo, inicia sesión para obtener un token de acceso y define `TRYONLABS_TOKEN` en el entorno del backend (o en `.env`, sin subirlo a Git). Este token puede caducar y requerir renovación.
+- Para obtener el token, revisa los pasos de [autenticación](https://docs.tryonlabs.ai/authentication/). Si no se configura el token, guardar perfiles y fotografías sigue funcionando, pero generar la prueba devuelve HTTP 503.
+- La integración funciona con las categorías `Tops` y `Bottoms`; requiere una imagen de prenda HTTPS pública. Los resultados de las pruebas no se guardan en MonarcaDB y se descartan del navegador al cerrar la vista. El proveedor externo puede tener sus propias reglas de retención y tratamiento de imágenes: presenta esta información al usuario antes de realizar pruebas reales.
+- La IA genera una representación visual, no una medición real de ajuste ni una recomendación automática de talla.
+
+**Pruebas de integración pendientes:** el pipeline valida la compilación, pero no consume créditos reales de TryOn Labs; la primera prueba extremo a extremo necesita un token activo y una fotografía/prenda de prueba autorizadas.
