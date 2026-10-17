@@ -114,6 +114,9 @@ class ProductoVariantesTest {
         producto.setNombre("Blusa Elizabeth");
         VarianteProducto existente = varianteExistente(producto, "S", "Negro");
         when(productos.findById(17L)).thenReturn(Optional.of(producto));
+        Categoria categoria = new Categoria();
+        categoria.setNombre("Tops");
+        when(categorias.findByNombreIgnoreCase("Tops")).thenReturn(Optional.of(categoria));
         when(productos.save(any())).thenAnswer(i -> i.getArgument(0));
         when(variantes.findByProducto_IdProducto(17L)).thenReturn(List.of(existente));
         when(variantes.findByIdForUpdate(10L)).thenReturn(Optional.of(existente));
@@ -144,6 +147,9 @@ class ProductoVariantesTest {
         producto.setIdProducto(17L);
         VarianteProducto existente = varianteExistente(producto, "M", "Negro");
         when(productos.findById(17L)).thenReturn(Optional.of(producto));
+        Categoria categoria = new Categoria();
+        categoria.setNombre("Tops");
+        when(categorias.findByNombreIgnoreCase("Tops")).thenReturn(Optional.of(categoria));
         when(productos.save(any())).thenAnswer(i -> i.getArgument(0));
         when(variantes.findByProducto_IdProducto(17L)).thenReturn(List.of(existente));
         when(variantes.findByIdForUpdate(10L)).thenReturn(Optional.of(existente));
@@ -167,6 +173,9 @@ class ProductoVariantesTest {
         producto.setIdProducto(17L);
         VarianteProducto existente = varianteExistente(producto, "S", "Negro");
         when(productos.findById(17L)).thenReturn(Optional.of(producto));
+        Categoria categoria = new Categoria();
+        categoria.setNombre("Tops");
+        when(categorias.findByNombreIgnoreCase("Tops")).thenReturn(Optional.of(categoria));
         when(productos.save(any())).thenAnswer(i -> i.getArgument(0));
         when(variantes.findByProducto_IdProducto(17L)).thenReturn(List.of(existente));
         when(variantes.findByIdForUpdate(10L)).thenReturn(Optional.of(existente));
