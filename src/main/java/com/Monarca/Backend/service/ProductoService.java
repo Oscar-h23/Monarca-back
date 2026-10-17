@@ -3,6 +3,7 @@ package com.Monarca.Backend.service;
 import com.Monarca.Backend.dto.ProductoDto;
 import com.Monarca.Backend.dto.ProductoResponseDto;
 import com.Monarca.Backend.dto.VarianteProductoResponseDto;
+import com.Monarca.Backend.dto.VarianteProductoInputDto;
 
 import com.Monarca.Backend.model.Categoria;
 import com.Monarca.Backend.model.ImagenProducto;
@@ -22,6 +23,9 @@ import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import java.util.Optional;
 
 
@@ -76,211 +80,55 @@ public class ProductoService {
 
     @Transactional
     public Producto guardar(ProductoDto dto) {
-
         validarDto(dto);
         validarImagen(dto.getImg());
-        if (dto.getPrecioBase() != null && dto.getPrecioBase().signum() < 0) throw new IllegalArgumentException("Precio base inválido");
-
-
-        // -----------------------------------------------------
-        // BUSCAR CATEGORÍA
-        // -----------------------------------------------------
-
-        Categoria categoria = categoriaRepository
-                .findByNombreIgnoreCase(dto.getCategoria())
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Categoría no encontrada: "
-                                        + dto.getCategoria()
-                        )
-                );
-
-
-        BigDecimal precio = dto.getPrecio();
-
-
-        // -----------------------------------------------------
-        // CREAR PRODUCTO
-        // -----------------------------------------------------
-
-        Producto producto = new Producto();
-
-        producto.setNombre(
-                dto.getNombre().trim()
-        );
-
-        producto.setCategoria(
-                categoria
-        );
-
-        producto.setSlug(
-                generarSlugUnico(
-                        dto.getNombre(),
-                        null
-                )
-        );
-
-        producto.setDescripcion(
-                valorODefecto(
-                        dto.getDescripcion(),
-                        "Sin descripción"
-                )
-        );
-
-        producto.setMarca(
-                valorODefecto(
-                        dto.getMarca(),
-                        "Monarca"
-                )
-        );
-
-        producto.setPrecioBase(dto.getPrecioBase() != null ? dto.getPrecioBase() : precio);
-
-        producto.setActivo(
-                true
-        );
-
-        producto.setDestacado(
-                false
-        );
-
-
-        producto = productoRepository.save(
-                producto
-        );
-
-
-        // =====================================================
-        // CREAR PRIMERA VARIANTE
-        // =====================================================
-
-        VarianteProducto variante =
-                new VarianteProducto();
-
-
-        variante.setProducto(
-                producto
-        );
-
-
-        variante.setSku(
-                generarSku(producto)
-        );
-
-
-        variante.setTalla(
-                valorODefecto(
-                        dto.getTalla(),
-                        "ÚNICA"
-                )
-        );
-
-
-        variante.setColor(
-                valorODefecto(
-                        dto.getColor(),
-                        "N/A"
-                )
-        );
-
-
-        variante.setColorHex(
-                dto.getColorHex()
-        );
-
-
-        variante.setPrecio(
-                precio
-        );
-
-
-        variante.setStock(
-                dto.getStock() != null
-                        ? dto.getStock()
-                        : 0
-        );
-
-
-        variante.setStockMinimo(
-                dto.getStockMinimo() != null
-                        ? dto.getStockMinimo()
-                        : 0
-        );
-
-
-        variante.setActivo(
-                true
-        );
-
-
-        varianteRepository.save(
-                variante
-        );
-
-
-        // =====================================================
-        // GUARDAR IMAGEN PRINCIPAL
-        // =====================================================
-
-        if (
-                dto.getImg() != null
-                        && !dto.getImg().isBlank()
-        ) {
-
-            ImagenProducto imagen =
-                    new ImagenProducto();
-
-
-            imagen.setProducto(
-                    producto
-            );
-
-
-            /*
-             * La imagen principal pertenece al producto.
-             *
-             * No la asociamos a una talla específica.
-             *
-             * Una imagen podría asociarse a una variante
-             * posteriormente si, por ejemplo:
-             *
-             * Negro -> foto negra
-             * Blanco -> foto blanca
-             */
-            imagen.setVariante(
-                    null
-            );
-
-
-            imagen.setUrl(
-                    dto.getImg().trim()
-            );
-
-
-            imagen.setTextoAlternativo(
-                    producto.getNombre()
-            );
-
-
-            imagen.setPrincipal(
-                    true
-            );
-
-
-            imagen.setOrden(
-                    0
-            );
-
-
-            imagenRepository.save(
-                    imagen
-            );
+        if (dto.getPrecioBase() != null && dto.getPrecioBase().signum() < 0) {
+            throw new IllegalArgumentException("Precio base inválido");
         }
 
+        // Validar todas las variantes antes de guardar; la transacción es atómica.
+        List<VarianteProductoInputDto> entradas = prepararVariantes(dto);
+        Categoria categoria = categoriaRepository.findByNombreIgnoreCase(dto.getCategoria())
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada: " + dto.getCategoria()));
 
+        Producto producto = new Producto();
+        producto.setNombre(dto.getNombre().trim());
+        producto.setCategoria(categoria);
+        producto.setSlug(generarSlugUnico(dto.getNombre(), null));
+        producto.setDescripcion(valorODefecto(dto.getDescripcion(), "Sin descripción"));
+        producto.setMarca(valorODefecto(dto.getMarca(), "Monarca"));
+        producto.setPrecioBase(dto.getPrecioBase() != null
+                ? dto.getPrecioBase() : entradas.get(0).getPrecio());
+        producto.setActivo(true);
+        producto.setDestacado(false);
+        producto = productoRepository.save(producto);
+
+        for (VarianteProductoInputDto entrada : entradas) {
+            VarianteProducto variante = new VarianteProducto();
+            variante.setProducto(producto);
+            variante.setSku(generarSku(producto));
+            variante.setTalla(entrada.getTalla());
+            variante.setColor(entrada.getColor());
+            variante.setColorHex(entrada.getColorHex());
+            variante.setPrecio(entrada.getPrecio());
+            variante.setStock(entrada.getStock());
+            variante.setStockMinimo(entrada.getStockMinimo());
+            variante.setActivo(true);
+            varianteRepository.save(variante);
+        }
+
+        if (dto.getImg() != null && !dto.getImg().isBlank()) {
+            ImagenProducto imagen = new ImagenProducto();
+            imagen.setProducto(producto);
+            imagen.setVariante(null);
+            imagen.setUrl(dto.getImg().trim());
+            imagen.setTextoAlternativo(producto.getNombre());
+            imagen.setPrincipal(true);
+            imagen.setOrden(0);
+            imagenRepository.save(imagen);
+        }
         return producto;
     }
-
 
     // =========================================================
     // ACTUALIZAR PRODUCTO
@@ -847,13 +695,8 @@ public class ProductoService {
         // PRECIO
         // -----------------------------------------------------
 
-        if (
-                dto.getPrecio() == null
-                        || dto.getPrecio()
-                        .compareTo(
-                                BigDecimal.ZERO
-                        ) < 0
-        ) {
+        if (dto.getVariantes() == null && (dto.getPrecio() == null
+                || dto.getPrecio().compareTo(BigDecimal.ZERO) < 0)) {
 
             throw new RuntimeException(
                     "El precio no es válido"
@@ -892,6 +735,57 @@ public class ProductoService {
     }
 
 
+    /** Valida tallas y colores repetidos y conserva el alta antigua de una variante. */
+    private List<VarianteProductoInputDto> prepararVariantes(ProductoDto dto) {
+        boolean multiple = dto.getVariantes() != null;
+        List<VarianteProductoInputDto> entradas;
+        if (multiple) {
+            entradas = dto.getVariantes();
+        } else {
+            VarianteProductoInputDto unica = new VarianteProductoInputDto();
+            unica.setTalla(dto.getTalla());
+            unica.setColor(dto.getColor());
+            unica.setColorHex(dto.getColorHex());
+            unica.setPrecio(dto.getPrecio());
+            unica.setStock(dto.getStock());
+            unica.setStockMinimo(dto.getStockMinimo());
+            entradas = List.of(unica);
+        }
+        if (entradas.isEmpty() || entradas.size() > 40) {
+            throw new IllegalArgumentException("Registra entre 1 y 40 variantes.");
+        }
+        Set<String> combinaciones = new HashSet<>();
+        for (VarianteProductoInputDto entrada : entradas) {
+            if (entrada == null) throw new IllegalArgumentException("No puede haber variantes vacías.");
+            if (multiple && (entrada.getTalla() == null || entrada.getTalla().isBlank()
+                    || entrada.getColor() == null || entrada.getColor().isBlank())) {
+                throw new IllegalArgumentException("Indica talla y color en todas las variantes.");
+            }
+            String talla = valorODefecto(entrada.getTalla(), "ÚNICA");
+            String color = valorODefecto(entrada.getColor(), "N/A");
+            if (talla.length() > 20 || color.length() > 50) {
+                throw new IllegalArgumentException("La talla o el color exceden la longitud permitida.");
+            }
+            String clave = talla.toLowerCase(Locale.ROOT) + "|" + color.toLowerCase(Locale.ROOT);
+            if (!combinaciones.add(clave)) {
+                throw new IllegalArgumentException("No repitas la combinación de talla y color: " + talla + " / " + color);
+            }
+            if (entrada.getPrecio() == null || entrada.getPrecio().signum() < 0) {
+                throw new IllegalArgumentException("Cada variante necesita un precio válido.");
+            }
+            if ((entrada.getStock() != null && entrada.getStock() < 0)
+                    || (entrada.getStockMinimo() != null && entrada.getStockMinimo() < 0)) {
+                throw new IllegalArgumentException("El stock y el stock mínimo no pueden ser negativos.");
+            }
+            entrada.setTalla(talla);
+            entrada.setColor(color);
+            entrada.setColorHex(entrada.getColorHex() == null ? null : entrada.getColorHex().trim());
+            entrada.setStock(entrada.getStock() == null ? 0 : entrada.getStock());
+            entrada.setStockMinimo(entrada.getStockMinimo() == null ? 0 : entrada.getStockMinimo());
+        }
+        return entradas;
+    }
+
     // =========================================================
     // GENERAR SKU
     // =========================================================
@@ -900,10 +794,7 @@ public class ProductoService {
             Producto producto
     ) {
 
-        return "MON-"
-                + producto.getIdProducto()
-                + "-"
-                + System.currentTimeMillis();
+        return "MON-" + producto.getIdProducto() + "-" + UUID.randomUUID();
     }
 
 
