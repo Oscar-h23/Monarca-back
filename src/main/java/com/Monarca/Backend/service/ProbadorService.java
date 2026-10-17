@@ -66,7 +66,8 @@ public class ProbadorService {
    if(url==null||url.isBlank())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
      "Esta prenda no tiene una imagen para el probador.");
    try {
-     byte[] prenda=descargarPrenda(url);
+     String imagenDescarga="tryoncloud".equalsIgnoreCase(provider) ? urlCloudinaryJpg(url) : url;
+     byte[] prenda=descargarPrenda(imagenDescarga);
      String prendaMime=PerfilService.detectarMime(prenda);
      if(prendaMime==null)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"La imagen de la prenda no es JPG, PNG ni WebP.");
      if("tryoncloud".equalsIgnoreCase(provider))
@@ -99,6 +100,23 @@ public class ProbadorService {
    catch(IOException|IllegalArgumentException e){
      throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"No se pudo conectar o interpretar la respuesta de TryOn Labs. Revisa el registro de Spring Boot.",e);
    }
+ }
+
+ /** Pide el mismo recurso en JPG a Cloudinary, sin alterar el catálogo almacenado. */
+ static String urlCloudinaryJpg(String url) {
+   if(url==null)return null;
+   try {
+     URI uri=URI.create(url);
+     if(!"https".equalsIgnoreCase(uri.getScheme())
+         ||!"res.cloudinary.com".equalsIgnoreCase(uri.getHost())
+         ||uri.getPort()!=-1||uri.getUserInfo()!=null)return url;
+     String ruta=uri.getRawPath();
+     if(ruta==null||!ruta.contains("/image/upload/")
+         ||!ruta.toLowerCase(java.util.Locale.ROOT).endsWith(".webp"))return url;
+     String nueva=ruta.replaceFirst("/image/upload/", "/image/upload/f_jpg/")
+       .replaceFirst("(?i)\\.webp$", ".jpg");
+     return url.replace(ruta,nueva);
+   }catch(IllegalArgumentException e){return url;}
  }
 
  private byte[] descargarPrenda(String url)throws IOException,InterruptedException {

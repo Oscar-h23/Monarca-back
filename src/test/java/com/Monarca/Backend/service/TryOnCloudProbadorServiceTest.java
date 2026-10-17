@@ -39,6 +39,25 @@ class TryOnCloudProbadorServiceTest {
     }
 
     @Test
+    void procesaWebpLossyDeProducto() throws Exception {
+        byte[] webp = java.util.Base64.getDecoder().decode(
+                "UklGRjwAAABXRUJQVlA4IDAAAADQAQCdASoKAAwAAUAmJaACdLoB+AADsAD+8ut//NgVzXPv9//S4P0uD9Lg/9KQAAA=");
+        byte[] jpg = TryOnCloudProbadorService.prepararImagen(webp, "imagen de la prenda");
+        assertEquals("image/jpeg", PerfilService.detectarMime(jpg));
+    }
+
+    @Test
+    void identificaCualImagenFalloSinConsumirGeneraciones() {
+        byte[] mal="RIFF1234WEBP".getBytes(StandardCharsets.US_ASCII);
+        var perfil=assertThrows(ResponseStatusException.class,
+                () -> TryOnCloudProbadorService.crearMultipart("limite", mal, PNG));
+        assertTrue(perfil.getReason().contains("tu foto de perfil"));
+        var prenda=assertThrows(ResponseStatusException.class,
+                () -> TryOnCloudProbadorService.crearMultipart("limite", PNG, mal));
+        assertTrue(prenda.getReason().contains("la imagen de la prenda"));
+    }
+
+    @Test
     void rechazaWebpCorruptoSinEnviarDatos() {
         byte[] webp="RIFF1234WEBP".getBytes(StandardCharsets.US_ASCII);
         ResponseStatusException error = assertThrows(ResponseStatusException.class,

@@ -102,3 +102,8 @@ El nombre del proveedor activo puede consultarse en `GET /api/probador/configura
 ### Conversión WebP en TryOnCloud
 
 Monarca-back convierte en memoria las fotografías WebP almacenadas en el perfil o enlazadas desde productos a JPEG con TwelveMonkeys ImageIO (3.13.0), solo cuando el proveedor activo es TryOnCloud. Limita la decodificación a 20 MP y reduce el lado máximo a 2048 píxeles, aplicando fondo blanco donde haya transparencia. No modifica los archivos de la base de datos, no requiere migración y no llama a TryOnCloud hasta que la conversión sea correcta. Se incluyen pruebas con un WebP real y otro corrupto, sin consumir créditos.
+
+
+### Corrección WebP: identificación del origen y Cloudinary
+
+Para TryOnCloud, el backend solicita el JPG de los productos WebP públicos alojados en Cloudinary (transformación `f_jpg`) sin modificar las URL de la base de datos. Una conversión de Cloudinary puede contar como transformación en la cuenta Cloudinary, pero no genera llamadas al probador. Las fotos WebP privadas se decodifican localmente mediante el lector WebP explícito TwelveMonkeys 3.14.0; si no pueden decodificarse, el mensaje distingue la foto del perfil de la imagen del producto. Solo después de tener dos imágenes válidas se contacta a TryOnCloud. La disponibilidad de la variante JPG de Cloudinary y de todos los tipos WebP debe validarse en el entorno real.

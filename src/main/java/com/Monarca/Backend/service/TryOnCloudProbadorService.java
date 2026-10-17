@@ -13,7 +13,7 @@ import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
-import java.util.Iterator;
+import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -78,8 +78,8 @@ public class TryOnCloudProbadorService {
 
     static byte[] crearMultipart(String boundary, byte[] persona, byte[] prenda) throws IOException {
         // Convierte WebP a JPEG localmente, sin consumir créditos ni modificar el perfil.
-        byte[] personaCompatible = prepararImagen(persona);
-        byte[] prendaCompatible = prepararImagen(prenda);
+        byte[] personaCompatible = prepararImagen(persona, "tu foto de perfil");
+        byte[] prendaCompatible = prepararImagen(prenda, "la imagen de la prenda");
         String personaMime = validarImagen(personaCompatible);
         String prendaMime = validarImagen(prendaCompatible);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -106,6 +106,10 @@ public class TryOnCloudProbadorService {
      * Limita las dimensiones del origen y reduce el resultado a un máximo de 2048 px.
      */
     static byte[] prepararImagen(byte[] datos) {
+        return prepararImagen(datos, "la imagen WebP");
+    }
+
+    static byte[] prepararImagen(byte[] datos, String origenImagen) {
         if (datos == null || datos.length == 0 || datos.length > 15_000_000) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "La imagen está vacía o excede el límite de 15 MB.");
@@ -119,9 +123,8 @@ public class TryOnCloudProbadorService {
 
         try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(datos))) {
             if (input == null) throw new IOException("No se puede leer el archivo.");
-            Iterator<ImageReader> lectores = ImageIO.getImageReaders(input);
-            if (!lectores.hasNext()) throw new IOException("Decodificador WebP no disponible.");
-            ImageReader lector = lectores.next();
+            // SPI explícito incluso dentro de aplicaciones Spring Boot empaquetadas.
+            ImageReader lector = new WebPImageReaderSpi().createReaderInstance(null);
             BufferedImage origen;
             try {
                 lector.setInput(input, true, true);
@@ -158,7 +161,8 @@ public class TryOnCloudProbadorService {
         } catch (IOException | RuntimeException e) {
             if (e instanceof ResponseStatusException ex) throw ex;
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "No se pudo convertir la imagen WebP. Usa otra foto JPG o PNG.");
+                    "No se pudo convertir " + origenImagen + " en formato WebP. "
+                    + "Prueba con otra imagen JPG o PNG. No se enviaron fotos a TryOnCloud.");
         }
     }
 
