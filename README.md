@@ -77,3 +77,13 @@ La documentación pública de TryOn Labs indica que una generación exitosa desc
 La documentación oficial confirma que `1k`, `2k`, `4k` y `fast`, `balanced`, `quality` son valores permitidos. Por tanto, HTTP 400 también puede deberse a imágenes u otros campos. Ahora el backend extrae exclusivamente mensajes de validación de campos conocidos de la respuesta JSON de TryOn Labs y los comunica a la interfaz sin incluir imágenes ni credenciales. El MIME de las imágenes se respeta además al construir el nombre de cada archivo del `multipart/form-data`.
 
 **No se valida la API real en CI ni se gastan créditos.** Si el `.env` o IntelliJ tienen `TRYON_GENERATION_MODE=balanced`, esa variable prevalece y se debe cambiar manualmente a `fast`; no publicar tokens ni `.env`.
+
+### Proveedor alternativo Agalaz (prueba sin tarjeta)
+
+El probador utiliza por defecto `TRYON_PROVIDER=agalaz`. Regístrate en https://agalaz.com/partners, registra el dominio de pruebas, genera la clave `agz_live_...` y configura `AGALAZ_API_KEY` únicamente en el entorno de Monarca-back (IntelliJ > Run > Edit Configurations > Environment variables o archivo `.env` exportado en Terminal). No agregues esa clave a Angular ni a Git. Agalaz anuncia 50 llamadas de prueba durante 7 días, sin tarjeta; pasado el periodo exige un plan de pago. Cada llamada con consentimiento explícito envía la fotografía privada y la imagen de la prenda en base64 a Agalaz. El proveedor declara descartar las fotografías tras responder, pero hay que verificar su política antes de ofrecerlo a clientes reales.
+
+El adaptador hace POST https://agalaz.com/api/v1/tryon con los campos `userImage` y `clothingImage`, recibe `image` como data URL y devuelve la fotografía generada sin persistirla. Si falta la clave, responde HTTP 503 sin llamar al proveedor. Respuestas 402 se convierten en 429 para mostrar cuota agotada. No se realizan generaciones externas durante los tests ni los despliegues.
+
+Para volver a la integración antigua establece `TRYON_PROVIDER=tryonlabs` y configura `TRYONLABS_TOKEN`. Los parámetros `TRYON_RESOLUTION` y `TRYON_GENERATION_MODE` solo afectan a TryOn Labs. Los cambios son en el backend; no requieren migraciones nuevas en Supabase.
+
+**Prueba real pendiente:** con una clave válida y dominio admitido, confirma tamaño de foto (mínimo 500x500 px), consentimiento y que el saldo gratuito esté vigente. Verifica términos comerciales antes de producir.

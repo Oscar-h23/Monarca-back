@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProbadorConfiguracionTest {
     @Test
     void construyePeticionDePruebaConResolucionReducidaSinLlamarAlProveedor() throws Exception {
-        ProbadorService service = new ProbadorService("", null, null, null);
+        ProbadorService service = new ProbadorService("", null, null, null, null);
         FotoProbador foto = new FotoProbador();
         foto.setMimeTipo("image/png");
         foto.setDatos(new byte[]{(byte) 137, 80, 78, 71});
