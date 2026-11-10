@@ -46,6 +46,12 @@ public class Usuario {
     @Column(name = "numero_documento", length = 20)
     private String numeroDocumento;
 
+    @Column(name = "direccion", length = 200) private String direccion;
+    @Column(name = "distrito", length = 100) private String distrito;
+    @Column(name = "provincia", length = 100) private String provincia;
+    @Column(name = "departamento", length = 100) private String departamento;
+    @Column(name = "referencia", length = 200) private String referencia;
+
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 

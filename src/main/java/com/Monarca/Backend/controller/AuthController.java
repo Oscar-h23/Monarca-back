@@ -7,6 +7,7 @@ import com.Monarca.Backend.model.Usuario;
 import com.Monarca.Backend.repository.RolRepository;
 import com.Monarca.Backend.repository.UsuarioRepository;
 import com.Monarca.Backend.security.JwtUtil;
+import com.Monarca.Backend.security.CustomUserDetailsService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

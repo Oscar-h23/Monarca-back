@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
@@ -27,4 +28,7 @@ public class ProductoDto {
     private Integer stockMinimo;
 
     private String img;
+
+    /** Alta múltiple: opcional para conservar compatibilidad con clientes anteriores. */
+    private List<VarianteProductoInputDto> variantes;
 }

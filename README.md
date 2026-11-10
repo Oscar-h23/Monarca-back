@@ -8,10 +8,10 @@ Backend separado del [repositorio original Monarca](https://github.com/jpumaricr
 
 Proyecto conectado: **MonarcaDB** (Supabase, referencia `ldjuyocsuvvvbllgdclv`), región `us-east-1`.
 
-- Esquema privado `monarca`: 10 tablas compatibles con las entidades JPA de la aplicación.
+- Esquema privado `monarca`: tablas compatibles con las entidades JPA, incluida la tabla de fotografías del probador.
 - El SQL reproducible está en [`db/schema/monarca_initial.sql`](db/schema/monarca_initial.sql). Se aplicó en MonarcaDB mediante una migración registrada `monarca_initial_schema`.
 - Datos iniciales: roles `ADMIN`/`CLIENTE`, categorías `Tops`/`Bottoms`/`Calzado`/`Accesorios`, modalidad `Pago por coordinar`.
-- No hay usuarios administradores, productos ni pedidos iniciales. No se crean contraseñas de demostración.
+- Las cuentas, productos y pedidos se gestionan desde la aplicación; ningún usuario ni contraseña se crea automáticamente con el esquema.
 - El backend exige `spring.jpa.hibernate.ddl-auto=validate` y **no crea ni altera tablas al arrancar**.
 - El esquema `monarca` no está expuesto por la API REST pública de Supabase; se revocaron permisos a `anon` y `authenticated`. El asesor de Supabase marca RLS deshabilitado en tablas privadas; si alguna vez se expone este esquema a Data API habrá que diseñar las políticas RLS previamente.
 
@@ -53,3 +53,67 @@ No se procesa un cobro real: el método **Pago por coordinar** solo genera un pe
 ```
 
 La CI compila y ejecuta tests unitarios seleccionados. No hay todavía pruebas del backend conectado a PostgreSQL desde CI; para completar el despliegue se deben ejecutar pruebas de integración y revisar CORS, seguridad y backups.
+
+## Mi perfil y probador virtual (demostración)
+
+- La migración aditiva [`db/migrations/20261017_perfil_probador.sql`](db/migrations/20261017_perfil_probador.sql) añade datos de entrega al usuario y la tabla privada `monarca.fotos_probador`. Ya fue aplicada al proyecto MonarcaDB; ejecútala en cualquier otra base de pruebas antes de arrancar con `ddl-auto=validate`.
+- El usuario autenticado administra solo sus datos mediante `GET/PUT /api/perfil` y su imagen mediante `POST/GET/DELETE /api/perfil/foto`. Imagen JPG/PNG/WebP con un máximo de 4 MB. Se almacena en PostgreSQL en un esquema privado y solo se lee a través del JWT del usuario.
+- `POST /api/probador/{idProducto}` con `{\"consentimiento\":true}` solicita al proveedor una prueba con la foto privada y la imagen HTTPS del producto; el backend nunca envía su token al navegador.
+- El proveedor actual es [TryOn Labs](https://docs.tryonlabs.ai/) y ofrece créditos de prueba limitados. Regístrate y verifica el correo, inicia sesión para obtener un token de acceso y define `TRYONLABS_TOKEN` en el entorno del backend (o en `.env`, sin subirlo a Git). Este token puede caducar y requerir renovación.
+- Para obtener el token, revisa los pasos de [autenticación](https://docs.tryonlabs.ai/authentication/). Si no se configura el token, guardar perfiles y fotografías sigue funcionando, pero generar la prueba devuelve HTTP 503.
+- La integración funciona con las categorías `Tops` y `Bottoms`; requiere una imagen de prenda HTTPS pública. Los resultados de las pruebas no se guardan en MonarcaDB y se descartan del navegador al cerrar la vista. El proveedor externo puede tener sus propias reglas de retención y tratamiento de imágenes: presenta esta información al usuario antes de realizar pruebas reales.
+- La IA genera una representación visual, no una medición real de ajuste ni una recomendación automática de talla.
+
+**Pruebas de integración pendientes:** el pipeline valida la compilación, pero no consume créditos reales de TryOn Labs; la primera prueba extremo a extremo necesita un token activo y una fotografía/prenda de prueba autorizadas.
+
+### Reducir el consumo de créditos del probador
+
+Para pruebas, el backend utiliza por defecto `resolution=1k` y `generation_mode=fast`, en lugar de `2k` y `quality`. Se pueden cambiar sin editar código mediante `TRYON_RESOLUTION` y `TRYON_GENERATION_MODE` en el backend. **No existe una tarifa oficial confirmada para esta combinación:** revisa los créditos requeridos antes de volver a generar, porque una llamada puede consumir más de los 40 créditos restantes. No se consultan ni se gastan créditos al compilar o desplegar.
+
+La documentación pública de TryOn Labs indica que una generación exitosa descuenta créditos, pero no proporciona una tabla detallada de precios por resolución y modo: https://docs.tryonlabs.ai/api/vton-generate-create/
+
+### Diagnóstico HTTP 400 del probador (sin gastar créditos)
+
+La documentación oficial confirma que `1k`, `2k`, `4k` y `fast`, `balanced`, `quality` son valores permitidos. Por tanto, HTTP 400 también puede deberse a imágenes u otros campos. Ahora el backend extrae exclusivamente mensajes de validación de campos conocidos de la respuesta JSON de TryOn Labs y los comunica a la interfaz sin incluir imágenes ni credenciales. El MIME de las imágenes se respeta además al construir el nombre de cada archivo del `multipart/form-data`.
+
+**No se valida la API real en CI ni se gastan créditos.** Si el `.env` o IntelliJ tienen `TRYON_GENERATION_MODE=balanced`, esa variable prevalece y se debe cambiar manualmente a `fast`; no publicar tokens ni `.env`.
+
+### Proveedor alternativo Agalaz (prueba sin tarjeta)
+
+El probador utiliza por defecto `TRYON_PROVIDER=agalaz`. Regístrate en https://agalaz.com/partners, registra el dominio de pruebas, genera la clave `agz_live_...` y configura `AGALAZ_API_KEY` únicamente en el entorno de Monarca-back (IntelliJ > Run > Edit Configurations > Environment variables o archivo `.env` exportado en Terminal). No agregues esa clave a Angular ni a Git. Agalaz anuncia 50 llamadas de prueba durante 7 días, sin tarjeta; pasado el periodo exige un plan de pago. Cada llamada con consentimiento explícito envía la fotografía privada y la imagen de la prenda en base64 a Agalaz. El proveedor declara descartar las fotografías tras responder, pero hay que verificar su política antes de ofrecerlo a clientes reales.
+
+El adaptador hace POST https://agalaz.com/api/v1/tryon con los campos `userImage` y `clothingImage`, recibe `image` como data URL y devuelve la fotografía generada sin persistirla. Si falta la clave, responde HTTP 503 sin llamar al proveedor. Respuestas 402 se convierten en 429 para mostrar cuota agotada. No se realizan generaciones externas durante los tests ni los despliegues.
+
+Para volver a la integración antigua establece `TRYON_PROVIDER=tryonlabs` y configura `TRYONLABS_TOKEN`. Los parámetros `TRYON_RESOLUTION` y `TRYON_GENERATION_MODE` solo afectan a TryOn Labs. Los cambios son en el backend; no requieren migraciones nuevas en Supabase.
+
+**Prueba real pendiente:** con una clave válida y dominio admitido, confirma tamaño de foto (mínimo 500x500 px), consentimiento y que el saldo gratuito esté vigente. Verifica términos comerciales antes de producir.
+
+### Opción recomendada sin tarjeta: TryOnCloud Developer API
+
+**Importante:** el formulario https://agalaz.com/partners exige tarjeta y activa automáticamente un plan de 150 €/mes si no cancelas antes del día 7, a diferencia de lo anunciado en https://agalaz.com/developers. Por seguridad no se recomienda activar Agalaz para pruebas sin gastos.
+
+El proveedor por defecto ahora es `TRYON_PROVIDER=tryoncloud`. Regístrate en https://www.tryoncloud.com/signup, abre Dashboard > Developer API y genera una clave privada con prefijo `tk_dev_v1_`. Configúrala exclusivamente en el backend como `TRYONCLOUD_API_KEY`; no la expongas en Angular ni la publiques en Git.
+
+TryOnCloud publica 10 pruebas gratuitas sin tarjeta de crédito; después se paga por generación. Esta es la **Developer API** `POST https://www.tryoncloud.com/api/v1/generate` (no confundir con la Platform API `/api/v1/tryon`). Envía `person_image` y `garment_image` como archivos multipart y devuelve la imagen directamente en el cuerpo HTTP. La documentación especifica imágenes JPEG o PNG. El backend convierte automáticamente WebP a JPEG antes de generar la solicitud, sin persistir la imagen transformada. No hay reintentos automáticos para evitar consumo accidental.
+
+El nombre del proveedor activo puede consultarse en `GET /api/probador/configuracion` para solicitar consentimiento informado en el frontend. Cambiar de API solo requiere cambiar `TRYON_PROVIDER` a `tryoncloud`, `agalaz` o `tryonlabs` y configurar las credenciales respectivas. No cambian las tablas de Supabase ni se realizan peticiones reales durante GitHub Actions.
+
+
+### Conversión WebP en TryOnCloud
+
+Monarca-back convierte en memoria las fotografías WebP almacenadas en el perfil o enlazadas desde productos a JPEG con TwelveMonkeys ImageIO (3.13.0), solo cuando el proveedor activo es TryOnCloud. Limita la decodificación a 20 MP y reduce el lado máximo a 2048 píxeles, aplicando fondo blanco donde haya transparencia. No modifica los archivos de la base de datos, no requiere migración y no llama a TryOnCloud hasta que la conversión sea correcta. Se incluyen pruebas con un WebP real y otro corrupto, sin consumir créditos.
+
+
+### Corrección WebP: identificación del origen y Cloudinary
+
+Para TryOnCloud, el backend solicita el JPG de los productos WebP públicos alojados en Cloudinary (transformación `f_jpg`) sin modificar las URL de la base de datos. Una conversión de Cloudinary puede contar como transformación en la cuenta Cloudinary, pero no genera llamadas al probador. Las fotos WebP privadas se decodifican localmente mediante el lector WebP explícito TwelveMonkeys 3.14.0; si no pueden decodificarse, el mensaje distingue la foto del perfil de la imagen del producto. Solo después de tener dos imágenes válidas se contacta a TryOnCloud. La disponibilidad de la variante JPG de Cloudinary y de todos los tipos WebP debe validarse en el entorno real.
+
+### Subir archivos de productos a Supabase Storage (administradores)
+
+El bucket público `monarca-productos` existe en el proyecto Supabase MonarcaDB con límite de 5 MiB por archivo y tipos `image/jpeg` y `image/png`. El acceso público es **solo de lectura**; no se establecieron políticas de escritura anónima. Un administrador de Monarca autorizado con JWT envía `multipart/form-data` al backend mediante `POST /api/productos/imagenes` (campo `archivo`, máximo 5 MB). Spring Boot valida el formato real, dimensiones (máx. 20 MP), procesa la imagen a un tamaño máximo de 2048 px y elimina metadata de imágenes antes de guardarla en Storage. El endpoint devuelve `{ "url":"https://.../storage/v1/object/public/monarca-productos/productos/<uuid>.jpg" }`, que se utiliza como `img` al crear o actualizar el producto. El catálogo existente sigue funcionando con URLs antiguas.
+
+**Configuración local:** obtener una clave secreta `service_role` del proyecto en Supabase Dashboard > Project Settings > API Keys y definir `SUPABASE_SERVICE_ROLE_KEY` exclusivamente en el entorno de `Monarca-back`; también acepta `MONARCA_SUPABASE_URL` y `MONARCA_STORAGE_BUCKET`. No poner la clave en Angular, no usar una clave pública/anon como sustituta, ni registrar el secreto en Git. Si falta, la subida devuelve HTTP 503 sin llamar a Supabase. El backend usa el encabezado `Authorization: Bearer <service_role>`, restringido a las rutas de carga autenticadas con rol ADMIN. No se modifica ninguna tabla del esquema `monarca`.
+
+El frontend convierte archivos WebP a JPEG en el navegador antes de la subida. Para evitar objetos huérfanos, solo carga cuando el administrador pulsa Guardar; si se carga correctamente y luego falla la creación del producto, conserva la URL subida en el formulario para reintentar sin duplicar el objeto. Los archivos ya subidos no se eliminan automáticamente cuando se reemplaza una imagen; revisar la limpieza de objetos sin uso antes de producción. **No almacenar fotos privadas de personas en este bucket público.**
+
+Las pruebas automáticas validan formatos, extensión, y que la subida sin credencial falla sin ninguna llamada de pago a servicios externos. Falta verificar una subida real con clave de backend en un entorno autorizado.

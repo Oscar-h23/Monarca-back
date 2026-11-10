@@ -18,4 +18,5 @@ public class VarianteProductoResponseDto {
     private String colorHex;
     private BigDecimal precio;
     private Integer stock;
+    private Integer stockMinimo;
 }
