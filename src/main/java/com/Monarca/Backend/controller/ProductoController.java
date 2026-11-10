@@ -25,6 +25,10 @@ public ResponseEntity<?> listarTodos() {
     return ResponseEntity.ok(
             productoService.listarCatalogo()
     );
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<java.util.Map<String,String>> medidaInvalida(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(java.util.Map.of("error",e.getMessage()));
+    }
 }
 
     // Guardar nuevo producto (Solo Admin)
