@@ -46,4 +46,10 @@ public class GoogleAuthController {
         google.vincular(principal.getName(), datos == null ? null : datos.credential());
         return ResponseEntity.noContent().build();
     }
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<Map<String,String>> errorGoogle(
+            org.springframework.web.server.ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(Map.of(
+                "error", e.getReason() == null ? "No se pudo iniciar sesión con Google." : e.getReason()));
+    }
 }
