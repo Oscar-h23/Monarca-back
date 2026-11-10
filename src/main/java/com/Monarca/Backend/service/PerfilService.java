@@ -24,7 +24,8 @@ public class PerfilService {
    Usuario u=usuario(correo);
    return new PerfilDto(u.getNombres(),u.getApellidos(),u.getCorreo(),u.getTelefono(),
      u.getTipoDocumento(),u.getNumeroDocumento(),u.getDireccion(),u.getDistrito(),
-     u.getProvincia(),u.getDepartamento(),u.getReferencia(),fotos.existsById(u.getIdUsuario()));
+     u.getProvincia(),u.getDepartamento(),u.getReferencia(),fotos.existsById(u.getIdUsuario()),
+     u.getBustoCm(),u.getCinturaCm(),u.getCaderaCm(),u.getAlturaCm(),u.getGoogleSub()!=null);
  }
  @Transactional
  public PerfilDto actualizar(String correo,PerfilUpdateDto dto){
@@ -40,6 +41,10 @@ public class PerfilService {
    u.setProvincia(opcional(dto.provincia(),100,"Provincia"));
    u.setDepartamento(opcional(dto.departamento(),100,"Departamento"));
    u.setReferencia(opcional(dto.referencia(),200,"Referencia"));
+   u.setBustoCm(MedidasService.validar(dto.bustoCm(),"Contorno de busto",30,300));
+   u.setCinturaCm(MedidasService.validar(dto.cinturaCm(),"Contorno de cintura",30,300));
+   u.setCaderaCm(MedidasService.validar(dto.caderaCm(),"Contorno de cadera",30,300));
+   u.setAlturaCm(MedidasService.validar(dto.alturaCm(),"Estatura",80,250));
    usuarios.save(u);
    return consultar(correo);
  }
