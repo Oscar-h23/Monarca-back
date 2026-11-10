@@ -27,6 +27,12 @@ public class ProductoDto {
     private Integer stock;
     private Integer stockMinimo;
 
+    // Medidas de la variante seleccionada al editar un producto.
+    private BigDecimal pechoCm;
+    private BigDecimal cinturaCm;
+    private BigDecimal caderaCm;
+    private BigDecimal largoCm;
+
     private String img;
 
     /** Alta múltiple: opcional para conservar compatibilidad con clientes anteriores. */
