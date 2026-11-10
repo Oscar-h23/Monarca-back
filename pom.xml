@@ -29,6 +29,12 @@
         <java.version>21</java.version>
     </properties>
   <dependencies>
+    <!-- Verificación criptográfica del ID token recibido de Google. -->
+    <dependency>
+        <groupId>com.google.api-client</groupId>
+        <artifactId>google-api-client</artifactId>
+        <version>2.9.2</version>
+    </dependency>
 
     <!-- Lector WebP para ImageIO, sin binarios nativos. -->
     <dependency>
