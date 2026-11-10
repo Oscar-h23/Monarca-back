@@ -113,6 +113,8 @@ public class ProductoService {
             variante.setPrecio(entrada.getPrecio());
             variante.setStock(entrada.getStock());
             variante.setStockMinimo(entrada.getStockMinimo());
+            MedidasService.variante(variante, entrada.getPechoCm(), entrada.getCinturaCm(),
+                    entrada.getCaderaCm(), entrada.getLargoCm());
             variante.setActivo(true);
             varianteRepository.save(variante);
         }
@@ -480,6 +482,8 @@ public class ProductoService {
             }
         }
 
+        MedidasService.variante(variante, dto.getPechoCm(), dto.getCinturaCm(),
+                dto.getCaderaCm(), dto.getLargoCm());
         varianteRepository.save(
                 variante
         );
@@ -494,6 +498,8 @@ public class ProductoService {
             adicional.setPrecio(nueva.getPrecio());
             adicional.setStock(nueva.getStock());
             adicional.setStockMinimo(nueva.getStockMinimo());
+            MedidasService.variante(adicional, nueva.getPechoCm(), nueva.getCinturaCm(),
+                    nueva.getCaderaCm(), nueva.getLargoCm());
             adicional.setActivo(true);
             varianteRepository.save(adicional);
         }
@@ -628,7 +634,8 @@ public class ProductoService {
         List<VarianteProductoResponseDto> variantes = varianteRepository
                 .findByProducto_IdProductoAndActivoTrue(producto.getIdProducto()).stream()
                 .map(v -> new VarianteProductoResponseDto(v.getIdVariante(), v.getSku(),
-                        v.getTalla(), v.getColor(), v.getColorHex(), v.getPrecio(), v.getStock(), v.getStockMinimo()))
+                        v.getTalla(), v.getColor(), v.getColorHex(), v.getPrecio(), v.getStock(), v.getStockMinimo(),
+                        v.getPechoCm(), v.getCinturaCm(), v.getCaderaCm(), v.getLargoCm()))
                 .toList();
         String imagen = imagenRepository.findFirstByProducto_IdProductoAndPrincipalTrue(producto.getIdProducto())
                 .map(ImagenProducto::getUrl).orElse(null);
@@ -799,6 +806,10 @@ public class ProductoService {
             unica.setPrecio(dto.getPrecio());
             unica.setStock(dto.getStock());
             unica.setStockMinimo(dto.getStockMinimo());
+            unica.setPechoCm(dto.getPechoCm());
+            unica.setCinturaCm(dto.getCinturaCm());
+            unica.setCaderaCm(dto.getCaderaCm());
+            unica.setLargoCm(dto.getLargoCm());
             entradas = List.of(unica);
         }
         if (entradas.isEmpty() || entradas.size() > 40) {
@@ -827,6 +838,10 @@ public class ProductoService {
                     || (entrada.getStockMinimo() != null && entrada.getStockMinimo() < 0)) {
                 throw new IllegalArgumentException("El stock y el stock mínimo no pueden ser negativos.");
             }
+            MedidasService.validar(entrada.getPechoCm(), "Pecho de la prenda", 20, 300);
+            MedidasService.validar(entrada.getCinturaCm(), "Cintura de la prenda", 20, 300);
+            MedidasService.validar(entrada.getCaderaCm(), "Cadera de la prenda", 20, 300);
+            MedidasService.validar(entrada.getLargoCm(), "Largo de la prenda", 10, 300);
             entrada.setTalla(talla);
             entrada.setColor(color);
             entrada.setColorHex(entrada.getColorHex() == null ? null : entrada.getColorHex().trim());
