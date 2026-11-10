@@ -14,4 +14,8 @@ public class VarianteProductoInputDto {
     private BigDecimal precio;
     private Integer stock;
     private Integer stockMinimo;
+    private BigDecimal pechoCm;
+    private BigDecimal cinturaCm;
+    private BigDecimal caderaCm;
+    private BigDecimal largoCm;
 }
