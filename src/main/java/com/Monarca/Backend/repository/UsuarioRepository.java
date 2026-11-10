@@ -8,6 +8,7 @@ import java.util.Optional;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     Optional<Usuario> findByCorreoIgnoreCase(String correo);
+    Optional<Usuario> findByGoogleSub(String googleSub);
 
     boolean existsByCorreoIgnoreCase(String correo);
     @org.springframework.transaction.annotation.Transactional

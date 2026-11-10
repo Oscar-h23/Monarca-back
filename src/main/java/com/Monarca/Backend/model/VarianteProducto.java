@@ -56,6 +56,12 @@ public class VarianteProducto {
     @Column(name = "stock_minimo", nullable = false)
     private Integer stockMinimo = 0;
 
+    // Circunferencias reales de la prenda (no medidas en plano), en centímetros.
+    @Column(name = "pecho_cm", precision = 5, scale = 1) private BigDecimal pechoCm;
+    @Column(name = "cintura_cm", precision = 5, scale = 1) private BigDecimal cinturaCm;
+    @Column(name = "cadera_cm", precision = 5, scale = 1) private BigDecimal caderaCm;
+    @Column(name = "largo_cm", precision = 5, scale = 1) private BigDecimal largoCm;
+
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 

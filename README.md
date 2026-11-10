@@ -117,3 +117,28 @@ El bucket público `monarca-productos` existe en el proyecto Supabase MonarcaDB 
 El frontend convierte archivos WebP a JPEG en el navegador antes de la subida. Para evitar objetos huérfanos, solo carga cuando el administrador pulsa Guardar; si se carga correctamente y luego falla la creación del producto, conserva la URL subida en el formulario para reintentar sin duplicar el objeto. Los archivos ya subidos no se eliminan automáticamente cuando se reemplaza una imagen; revisar la limpieza de objetos sin uso antes de producción. **No almacenar fotos privadas de personas en este bucket público.**
 
 Las pruebas automáticas validan formatos, extensión, y que la subida sin credencial falla sin ninguna llamada de pago a servicios externos. Falta verificar una subida real con clave de backend en un entorno autorizado.
+
+
+## Google Identity Services y recomendación de tallas
+
+**Antes de desplegar este cambio:** ejecutar una sola vez el SQL aditivo
+[`db/migrations/20261110_google_login_medidas.sql`](db/migrations/20261110_google_login_medidas.sql)
+en la base **MonarcaDB**. Hibernate tiene `ddl-auto=validate`: sin las columnas nuevas el backend no iniciará.
+
+1. En Google Cloud Console crea un OAuth Client ID de tipo **Web application** para Monarca.
+2. Registra los **orígenes JavaScript autorizados** reales, por ejemplo `http://localhost:4200` para desarrollo y el dominio HTTPS público para producción.
+3. Configura `GOOGLE_WEB_CLIENT_ID` en el entorno del backend. No se necesita Client Secret para verificar el ID token de Google Identity Services; nunca publiques secretos.
+4. El frontend obtiene ese ID público con `GET /api/auth/google/configuracion`. `POST /api/auth/google` valida criptográficamente el token de Google y devuelve el JWT de Monarca.
+5. Para cuentas existentes con correo y contraseña: iniciar sesión de forma habitual y usar **Mi perfil → Vincular Google** (`POST /api/auth/google/vincular`). No se vinculan cuentas por coincidencia de correo sin autenticación previa.
+6. Los clientes pueden dejar las medidas en blanco. `GET/PUT /api/perfil` gestiona busto, cintura, cadera y estatura en centímetros. Se guardan en `monarca.usuarios`.
+7. Cada variante de producto guarda pecho, cintura, cadera y largo de la prenda (circunferencias reales, no ancho en plano) en `monarca.variantes_producto`. Se incluyen en los endpoints existentes del catálogo y administración.
+
+El recomendador utiliza una regla heurística transparente en Angular: busca variantes disponibles cuyos contornos comparables superan los del cliente al menos 2 cm, priorizando variantes con más medidas comparables y menor holgura. No es una predicción clínica ni garantiza el ajuste; tejido y corte pueden cambiar el resultado. Si faltan medidas, no se inventa una talla. El largo y la estatura se muestran, pero no intervienen en la regla.
+
+### Pruebas recomendadas
+- Usuario nuevo: login Google, alta como CLIENTE, sesión JWT y perfil.
+- Usuario antiguo: Google devuelve conflicto hasta vinculación desde sesión ya autenticada; después login Google correcto.
+- Credencial Google falsa o de otro client ID: HTTP 401 (o HTTP 503 si falta configuración).
+- Alta/edición de variantes: medidas por talla, rangos y respuesta del catálogo.
+- Perfil: medidas opcionales, actualización, datos sin filtrar a otros usuarios.
+- Producto con datos insuficientes o sin stock: no presentar recomendación.

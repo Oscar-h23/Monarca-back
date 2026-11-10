@@ -52,6 +52,15 @@ public class Usuario {
     @Column(name = "departamento", length = 100) private String departamento;
     @Column(name = "referencia", length = 200) private String referencia;
 
+    // Google Identity Services: identificador estable de la cuenta, nunca el correo.
+    @Column(name = "google_sub", unique = true, length = 255)
+    private String googleSub;
+
+    @Column(name = "busto_cm", precision = 5, scale = 1) private java.math.BigDecimal bustoCm;
+    @Column(name = "cintura_cm", precision = 5, scale = 1) private java.math.BigDecimal cinturaCm;
+    @Column(name = "cadera_cm", precision = 5, scale = 1) private java.math.BigDecimal caderaCm;
+    @Column(name = "altura_cm", precision = 5, scale = 1) private java.math.BigDecimal alturaCm;
+
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 
