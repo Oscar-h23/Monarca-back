@@ -7,7 +7,7 @@ import com.Monarca.Backend.repository.UsuarioRepository;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.googleapis.util.Utils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,7 +45,7 @@ public class GoogleLoginService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Credencial de Google inválida.");
         try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-                    GoogleNetHttpTransport.newTrustedTransport(), JacksonFactory.getDefaultInstance())
+                    GoogleNetHttpTransport.newTrustedTransport(), Utils.getDefaultJsonFactory())
                     .setAudience(Collections.singletonList(clientId)).build();
             GoogleIdToken token = verifier.verify(credencial);
             if (token == null || token.getPayload() == null)
