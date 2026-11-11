@@ -29,7 +29,7 @@ class PasswordRecoveryServiceTest {
         usuarios = mock(UsuarioRepository.class); correo = mock(JavaMailSender.class);
         @SuppressWarnings("unchecked") ObjectProvider<JavaMailSender> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(correo);
-        service = new PasswordRecoveryService(usuarios, encoder, provider, "smtp.example.test", "tienda@example.test", "http://localhost:5500/fronted/Paginas/login.html");
+        service = new PasswordRecoveryService(usuarios, encoder, provider, "smtp.example.test", "resend", "re_fake_test_only", "tienda@example.test", "http://localhost:5500/fronted/Paginas/login.html");
         usuario = new Usuario(); usuario.setIdUsuario(1L); usuario.setCorreo("cliente@example.test");
         usuario.setPassword(encoder.encode(UUID.randomUUID().toString()));
         nueva = UUID.randomUUID().toString();
@@ -93,6 +93,32 @@ class PasswordRecoveryServiceTest {
         assertEquals(503, assertThrows(ResponseStatusException.class,
                 () -> service.solicitar(usuario.getCorreo(), "127.0.0.1")).getStatusCode().value());
         verifyNoInteractions(usuarios, correo);
+    }
+    @Test void smtpSinCredencialesNoAceptaSolicitud() {
+        @SuppressWarnings("unchecked") ObjectProvider<JavaMailSender> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(correo);
+        PasswordRecoveryService incompleto = new PasswordRecoveryService(usuarios, encoder, provider,
+                "smtp.resend.com", "resend", "", "avisos@example.test", "http://localhost:4200/login");
+        try {
+            assertEquals(503, assertThrows(ResponseStatusException.class,
+                    () -> incompleto.solicitar(usuario.getCorreo(), "127.0.0.1")).getStatusCode().value());
+            verifyNoInteractions(usuarios, correo);
+        } finally {
+            incompleto.cerrar();
+        }
+    }
+    @Test void smtpSinUsuarioNoAceptaSolicitud() {
+        @SuppressWarnings("unchecked") ObjectProvider<JavaMailSender> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(correo);
+        PasswordRecoveryService incompleto = new PasswordRecoveryService(usuarios, encoder, provider,
+                "smtp.resend.com", "", "re_fake_test_only", "avisos@example.test", "http://localhost:4200/login");
+        try {
+            assertEquals(503, assertThrows(ResponseStatusException.class,
+                    () -> incompleto.solicitar(usuario.getCorreo(), "127.0.0.1")).getStatusCode().value());
+            verifyNoInteractions(usuarios, correo);
+        } finally {
+            incompleto.cerrar();
+        }
     }
     @Test void recuperacionNoAutenticaYResetInvalidaSesionAnterior() {
         String token = solicitar();

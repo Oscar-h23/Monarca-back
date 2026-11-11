@@ -1,4 +1,6 @@
 package com.Monarca.Backend.dto;
 public record PerfilUpdateDto(String nombres,String apellidos,String telefono,
  String tipoDocumento,String numeroDocumento,String direccion,String distrito,
- String provincia,String departamento,String referencia) {}
+ String provincia,String departamento,String referencia,
+ java.math.BigDecimal bustoCm,java.math.BigDecimal cinturaCm,
+ java.math.BigDecimal caderaCm,java.math.BigDecimal alturaCm) {}

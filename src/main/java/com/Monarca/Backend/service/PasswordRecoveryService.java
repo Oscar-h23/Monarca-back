@@ -35,6 +35,7 @@ public class PasswordRecoveryService {
     private final String remitente;
     private final String host;
     private final String pagina;
+    private final boolean smtpCredentialsPresent;
     private final SecureRandom random = new SecureRandom();
     private final ConcurrentMap<String, Enlace> enlaces = new ConcurrentHashMap<>();
     private final Map<String, Instant> solicitudes = new HashMap<>();
@@ -47,10 +48,14 @@ public class PasswordRecoveryService {
     public PasswordRecoveryService(UsuarioRepository usuarios, PasswordEncoder encoder,
             ObjectProvider<JavaMailSender> proveedor,
             @Value("${spring.mail.host:}") String host,
+            @Value("${spring.mail.username:}") String smtpUsername,
+            @Value("${spring.mail.password:}") String smtpPassword,
             @Value("${monarca.mail.from:}") String remitente,
             @Value("${monarca.password-reset-url:}") String pagina) {
         this.usuarios = usuarios; this.encoder = encoder; this.correo = proveedor.getIfAvailable();
         this.host = host; this.remitente = remitente; this.pagina = pagina;
+        // No retener otra copia de la API Key de Resend; solo validar su presencia.
+        this.smtpCredentialsPresent = !smtpUsername.isBlank() && !smtpPassword.isBlank();
     }
 
     public void solicitar(String email, String direccion) {
@@ -121,7 +126,8 @@ public class PasswordRecoveryService {
         return new IllegalArgumentException("El enlace no es válido, ya se usó o ha vencido. Solicita otro.");
     }
     private boolean configurado() {
-        if (correo == null || host.isBlank() || remitente.isBlank() || pagina.isBlank()) return false;
+        if (correo == null || host.isBlank() || !smtpCredentialsPresent
+                || remitente.isBlank() || pagina.isBlank()) return false;
         try {
             URI uri = URI.create(pagina);
             boolean local = "localhost".equals(uri.getHost()) || "127.0.0.1".equals(uri.getHost());
