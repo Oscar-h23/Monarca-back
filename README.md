@@ -119,6 +119,38 @@ El frontend convierte archivos WebP a JPEG en el navegador antes de la subida. P
 Las pruebas automáticas validan formatos, extensión, y que la subida sin credencial falla sin ninguna llamada de pago a servicios externos. Falta verificar una subida real con clave de backend en un entorno autorizado.
 
 
+## Recuperación de contraseña con Resend SMTP (Spring Email)
+
+El backend ya usa `spring-boot-starter-mail` y `JavaMailSender`: **no necesita una contraseña de aplicación de Gmail** ni una dependencia adicional. Resend acepta la **API Key privada como contraseña SMTP** y el nombre de usuario literal `resend`. Configuración oficial: https://resend.com/docs/send-with-smtp
+
+1. En https://resend.com/domains registra un dominio que controles y completa su verificación DNS (DKIM y SPF según indique Resend).
+2. En https://resend.com/api-keys genera una API Key de envío y guárdala **solo** en variables privadas del backend.
+3. Define las siguientes variables en tu entorno de IntelliJ, archivo `.env` local excluido de Git o alojamiento del backend:
+
+```dotenv
+MAIL_HOST=smtp.resend.com
+MAIL_PORT=587
+MAIL_USERNAME=resend
+MAIL_PASSWORD=re_TU_API_KEY_PRIVADA
+MAIL_FROM=notificaciones@tu-dominio-verificado.com
+PASSWORD_RESET_URL=http://localhost:4200/login
+```
+
+**En producción:** configura `PASSWORD_RESET_URL=https://monarca-front.vercel.app/login`. El servidor SMTP se conecta mediante STARTTLS requerido sobre el puerto 587; no utilices puerto 465 con esta configuración de STARTTLS. `MAIL_FROM` debe ser una dirección válida bajo un dominio con envío verificado en Resend, no un `@gmail.com` inventado. No subas claves, capturas de claves ni el archivo `.env` a GitHub ni al frontend.
+
+Para exportar `.env` en Terminal (o define las variables en **Run → Edit Configurations → Environment variables** en IntelliJ):
+
+```bash
+set -a
+source .env
+set +a
+./mvnw spring-boot:run
+```
+
+El formulario «Olvidé mi contraseña» llama a `POST /api/auth/olvide-password`. Si falta `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_HOST`, `MAIL_FROM` o `PASSWORD_RESET_URL`, el backend responde HTTP 503 en lugar de aceptar solicitudes imposibles de enviar. Con todo configurado se encola el envío y se devuelve una respuesta genérica para no revelar si el correo existe; **una respuesta 200 no garantiza entrega**, así que comprueba tu bandeja, spam y los registros de Resend. El enlace expira en 15 minutos y se guarda solamente en memoria: un reinicio o una segunda instancia pueden invalidarlo. Para producción con varias réplicas se recomienda persistir tokens temporales con expiración en la base de datos.
+
+No se intenta enviar correos reales desde CI. Para la prueba completa se necesita una API Key válida, dominio verificado y una cuenta activa de prueba.
+
 ## Google Identity Services y recomendación de tallas
 
 **Antes de desplegar este cambio:** ejecutar una sola vez el SQL aditivo
