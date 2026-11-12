@@ -70,6 +70,9 @@ public class SecurityConfig {
                                 "/**"
                         ).permitAll()
 
+                        // Healthcheck público mínimo para Railway (no expone credenciales).
+                        .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+
                         // =====================================
                         // AUTENTICACIÓN PÚBLICA
                         // =====================================
