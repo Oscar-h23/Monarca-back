@@ -62,6 +62,7 @@ public class PedidoController {
             fila.put("cliente", pedido.getUsuario().getCorreo());
             fila.put("fechaPedido", pedido.getFechaPedido());
             fila.put("estadoPago", pago != null ? pago.getEstado() : "PENDIENTE");
+            fila.put("metodoPago", pago != null && pago.getMetodoPago() != null ? pago.getMetodoPago().getNombre() : "Por coordinar");
             fila.put("evidenciaDisponible", pago != null && pago.getComprobanteUrl() != null && !pago.getComprobanteUrl().isBlank());
             fila.put("motivoRechazo", pago != null && "RECHAZADO".equals(pago.getEstado()) ? pago.getObservacion() : null);
             fila.put("boletaDisponible", pago != null && "PAGADO".equals(pago.getEstado()));
