@@ -30,6 +30,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.AddressException;
 
 /**
  * Avisos de pedidos únicamente DESPUÉS de confirmar la transacción de negocio.
@@ -61,6 +65,13 @@ public class NotificacionesPedidoService {
     private final boolean usuarioListo;
     private final boolean passwordListo;
     private final boolean remitenteListo;
+    private final AtomicLong publicados = new AtomicLong();
+    private final AtomicLong confirmados = new AtomicLong();
+    private final AtomicLong aceptadosSmtp = new AtomicLong();
+    private final AtomicLong fallidosSmtp = new AtomicLong();
+    private final AtomicLong omitidos = new AtomicLong();
+    private final AtomicLong fueraTransaccion = new AtomicLong();
+
     private final ExecutorService envios = new ThreadPoolExecutor(
             1, 2, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<>(100), tarea -> {
                 Thread hilo = new Thread(tarea, "nayelis-avisos-pedidos");
@@ -88,7 +99,7 @@ public class NotificacionesPedidoService {
         this.hostListo = valido(host);
         this.usuarioListo = valido(usuarioSmtp) && "resend".equals(usuarioSmtp.trim());
         this.passwordListo = valido(passwordSmtp);
-        this.remitenteListo = PasswordRecoveryService.emailValido(this.desde);
+        this.remitenteListo = remitenteValido(this.desde);
         // Esta comprobación es local: para validar SMTP y el dominio hace falta una prueba real.
         this.smtpConfigurado = correo != null && hostListo && usuarioListo
                 && passwordListo && remitenteListo;
@@ -100,13 +111,17 @@ public class NotificacionesPedidoService {
      */
     public record EstadoCorreo(boolean configurado, boolean servidorSmtp, boolean usuarioResend,
                                boolean claveSmtp, boolean remitenteValido, boolean servicioCorreo,
-                               String mensaje) {}
+                               String mensaje, long eventosPublicados, long eventosConfirmados,
+                               long mensajesAceptadosSmtp, long mensajesFallidosSmtp,
+                               long eventosOmitidos, long eventosSinTransaccion) {}
 
     public EstadoCorreo estado() {
         return new EstadoCorreo(smtpConfigurado, hostListo, usuarioListo, passwordListo,
                 remitenteListo, correo != null,
                 smtpConfigurado ? "Configuración SMTP local completa. Envía una prueba para verificar Resend."
-                        : "Faltan variables SMTP. Revisa los indicadores y reinicia Spring Boot.");
+                        : "Faltan variables SMTP. Revisa los indicadores y reinicia Spring Boot.",
+                publicados.get(), confirmados.get(), aceptadosSmtp.get(),
+                fallidosSmtp.get(), omitidos.get(), fueraTransaccion.get());
     }
 
     @PostConstruct
@@ -165,6 +180,13 @@ public class NotificacionesPedidoService {
             log.warn("Pedido {} no dispone de correo válido para notificar.", pedido.getIdPedido());
             return;
         }
+        publicados.incrementAndGet();
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            fueraTransaccion.incrementAndGet();
+            log.warn("Aviso {} de pedido {} publicado sin transacción: listener AFTER_COMMIT no lo procesará.",
+                    tipo, pedido.getIdPedido());
+        }
+        log.info("Evento correo publicado: tipo={}, pedido={}", tipo, pedido.getIdPedido());
         eventos.publishEvent(new Aviso(
                 tipo, pedido.getIdPedido(), pedido.getCodigoPedido(), usuario.getCorreo(),
                 usuario.getNombres(), pedido.getTotal(), motivo));
@@ -172,7 +194,10 @@ public class NotificacionesPedidoService {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void alConfirmarTransaccion(Aviso aviso) {
+        confirmados.incrementAndGet();
+        log.info("Transacción confirmada para aviso: tipo={}, pedido={}.", aviso.tipo(), aviso.idPedido());
         if (!smtpConfigurado) {
+            omitidos.incrementAndGet();
             log.warn("Correo de pedido {} omitido por configuración SMTP incompleta: {}.", aviso.idPedido(), String.join(", ", requisitosFaltantes()));
             return;
         }
@@ -180,6 +205,7 @@ public class NotificacionesPedidoService {
             envios.execute(() -> entregar(aviso));
         } catch (RejectedExecutionException ex) {
             // Sin reintentos automáticos que dupliquen notificaciones.
+            omitidos.incrementAndGet();
             log.warn("Cola de correo llena: pedido {} no notificado.", aviso.idPedido());
         }
     }
@@ -268,9 +294,25 @@ public class NotificacionesPedidoService {
             email.setSubject(asunto);
             email.setText(texto);
             correo.send(email);
+            aceptadosSmtp.incrementAndGet();
+            log.info("Resend SMTP aceptó una notificación del pedido {}.", pedidoId);
         } catch (RuntimeException ex) {
+            fallidosSmtp.incrementAndGet();
             // No registrar tokens SMTP, datos personales ni contenido del correo.
             log.warn("Notificación de pedido {} no enviada: {}. Revisa Resend (dominio/remitente/SMTP).", pedidoId, ex.getClass().getSimpleName());
+        }
+    }
+
+    private static boolean remitenteValido(String remitente) {
+        if (remitente == null || remitente.isBlank()) return false;
+        try {
+            // Spring Mail acepta correo@dominio y también "Tienda <correo@dominio>".
+            // Antes los avisos se desactivaban por un remitente con nombre visible.
+            InternetAddress[] direcciones = InternetAddress.parse(remitente.trim(), true);
+            return direcciones.length == 1
+                    && PasswordRecoveryService.emailValido(direcciones[0].getAddress());
+        } catch (AddressException ex) {
+            return false;
         }
     }
 
