@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@WebMvcTest({ProductoController.class, CategoriaController.class, PedidoController.class, MetodoPagoController.class, PedidoClienteController.class})
+@WebMvcTest({ProductoController.class, CategoriaController.class, PedidoController.class, MetodoPagoController.class, PedidoClienteController.class, GestionPagoController.class})
 @Import({SecurityConfig.class, ApplicationConfig.class, CustomUserDetailsService.class, JwtUtil.class, ProductoService.class})
 class FlujoApiTest {
     @Autowired MockMvc mvc;
@@ -37,6 +37,7 @@ class FlujoApiTest {
     @MockBean PagoRepository pagos;
     @MockBean MetodoPagoRepository metodos;
     @MockBean PedidoService pedidoService;
+    @MockBean GestionPagoService gestionPago;
     @MockBean PedidoConsultaClienteService consultaCliente;
     @DynamicPropertySource static void propiedades(DynamicPropertyRegistry registry) {
         String claveEfimera = UUID.randomUUID().toString() + UUID.randomUUID();
@@ -103,6 +104,27 @@ class FlujoApiTest {
     @Test void adminListaPedidos() throws Exception {
         mvc.perform(get("/api/pedidos").header("Authorization",token("ADMIN"))).andExpect(status().isOk());
     }
+    @Test void clienteNoPuedeRevisarPagosNiVerEvidenciaAjena() throws Exception {
+        String jwt = token("CLIENTE");
+        mvc.perform(get("/api/admin/pedidos/12/evidencia").header("Authorization",jwt))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/admin/pedidos/12/pago").header("Authorization",jwt)
+                .contentType("application/json").content("{\"accion\":\"APROBAR\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/admin/pedidos/12/estado").header("Authorization",jwt)
+                .contentType("application/json").content("{\"estado\":\"FINALIZADO\"}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(gestionPago);
+    }
+
+    @Test void administradorPuedeRegistrarRevisionDeEvidencia() throws Exception {
+        String jwt = token("ADMIN");
+        mvc.perform(put("/api/admin/pedidos/12/pago").header("Authorization",jwt)
+                .contentType("application/json").content("{\"accion\":\"RECHAZAR\",\"motivo\":\"No coincide\"}"))
+                .andExpect(status().isOk());
+        verify(gestionPago).revisarPago(12L,"RECHAZAR","No coincide");
+    }
+
     @Test void metodosPagoUsanIdentificadoresReales() throws Exception {
         MetodoPago metodo = new MetodoPago(); metodo.setIdMetodoPago(37L); metodo.setCodigo("YAPE"); metodo.setNombre("Yape");
         when(metodos.findAll()).thenReturn(List.of(metodo));
