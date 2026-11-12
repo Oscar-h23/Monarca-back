@@ -31,19 +31,22 @@ public class GestionPagoService {
     private final VarianteProductoRepository variantes;
     private final EvidenciaPagoStorageService storage;
     private final BoletaPruebaPdfService pdf;
+    private final NotificacionesPedidoService notificaciones;
 
     public GestionPagoService(PedidoRepository pedidos,
                              PagoRepository pagos,
                              DetallePedidoRepository detalles,
                              VarianteProductoRepository variantes,
                              EvidenciaPagoStorageService storage,
-                             BoletaPruebaPdfService pdf) {
+                             BoletaPruebaPdfService pdf,
+                             NotificacionesPedidoService notificaciones) {
         this.pedidos = pedidos;
         this.pagos = pagos;
         this.detalles = detalles;
         this.variantes = variantes;
         this.storage = storage;
         this.pdf = pdf;
+        this.notificaciones = notificaciones;
     }
 
     @Transactional
@@ -64,6 +67,7 @@ public class GestionPagoService {
         pagos.save(pago);
         pedido.setEstado("PENDIENTE_CONFIRMACION");
         pedidos.save(pedido);
+        notificaciones.publicar(pedido, NotificacionesPedidoService.Tipo.EVIDENCIA_RECIBIDA, null);
     }
 
     @Transactional(readOnly = true)
@@ -102,6 +106,11 @@ public class GestionPagoService {
         }
         pagos.save(pago);
         pedidos.save(pedido);
+        notificaciones.publicar(pedido,
+                "APROBAR".equals(accion)
+                        ? NotificacionesPedidoService.Tipo.PAGO_APROBADO
+                        : NotificacionesPedidoService.Tipo.PAGO_RECHAZADO,
+                "RECHAZAR".equals(accion) ? pago.getObservacion() : null);
     }
 
     @Transactional
@@ -128,6 +137,7 @@ public class GestionPagoService {
             pago.setEstado("CANCELADO");
             pagos.save(pago);
             pedidos.save(pedido);
+            notificaciones.publicar(pedido, NotificacionesPedidoService.Tipo.CANCELADO, null);
             return;
         }
 
@@ -139,6 +149,7 @@ public class GestionPagoService {
             throw conflicto("Transición inválida. Verifica el pago y sigue el orden preparación → camino → finalizado.");
         pedido.setEstado(nuevo);
         pedidos.save(pedido);
+        notificaciones.publicar(pedido, NotificacionesPedidoService.Tipo.valueOf(nuevo), null);
     }
 
     @Transactional(readOnly = true)

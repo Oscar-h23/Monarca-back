@@ -4,11 +4,14 @@ import com.Monarca.Backend.model.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     Optional<Usuario> findByCorreoIgnoreCase(String correo);
     Optional<Usuario> findByGoogleSub(String googleSub);
+    // Destinatarios administrativos activos (si MAIL_ADMIN_TO no fue configurado).
+    List<Usuario> findByRol_NombreIgnoreCaseAndActivoTrue(String rol);
 
     boolean existsByCorreoIgnoreCase(String correo);
     @org.springframework.transaction.annotation.Transactional
