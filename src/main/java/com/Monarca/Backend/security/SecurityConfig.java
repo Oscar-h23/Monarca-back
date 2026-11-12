@@ -133,6 +133,13 @@ public class SecurityConfig {
                                 "/api/pedidos/mis-pedidos"
                         ).authenticated()
 
+                        // Comprobante de pago (propietario) y boleta de prueba (propietario o admin).
+                        .requestMatchers(HttpMethod.POST, "/api/pedidos/*/evidencia").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/pedidos/*/boleta-prueba").authenticated()
+
+                        // Administración: confirmación de pagos, evidencias privadas y estados.
+                        .requestMatchers("/api/admin/pedidos/**").hasAuthority("ROLE_ADMIN")
+
                         // Solo administrador ve todos los pedidos
                         .requestMatchers(
                                 HttpMethod.GET,

@@ -29,6 +29,13 @@
         <java.version>21</java.version>
     </properties>
   <dependencies>
+    <!-- Boleta de prueba local: NO genera comprobantes SUNAT. -->
+    <dependency>
+        <groupId>org.apache.pdfbox</groupId>
+        <artifactId>pdfbox</artifactId>
+        <version>3.0.8</version>
+    </dependency>
+
     <!-- Verificación criptográfica del ID token recibido de Google. -->
     <dependency>
         <groupId>com.google.api-client</groupId>

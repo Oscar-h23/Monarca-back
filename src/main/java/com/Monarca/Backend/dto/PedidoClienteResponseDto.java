@@ -14,7 +14,11 @@ public record PedidoClienteResponseDto(
         BigDecimal descuento,
         BigDecimal costoEnvio,
         BigDecimal total,
-        List<ProductoPedido> productos
+        List<ProductoPedido> productos,
+        String estadoPago,
+        boolean evidenciaEnviada,
+        String motivoRechazo,
+        boolean boletaDisponible
 ) {
     /** Snapshot de lo adquirido, que no cambia si se modifica el catálogo. */
     public record ProductoPedido(

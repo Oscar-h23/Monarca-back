@@ -3,6 +3,7 @@ package com.Monarca.Backend.service;
 import com.Monarca.Backend.dto.PedidoClienteResponseDto;
 import com.Monarca.Backend.model.DetallePedido;
 import com.Monarca.Backend.model.Pedido;
+import com.Monarca.Backend.repository.PagoRepository;
 import com.Monarca.Backend.model.Usuario;
 import com.Monarca.Backend.repository.DetallePedidoRepository;
 import com.Monarca.Backend.repository.PedidoRepository;
@@ -26,6 +27,7 @@ class PedidoConsultaClienteServiceTest {
     @Mock UsuarioRepository usuarios;
     @Mock PedidoRepository pedidos;
     @Mock DetallePedidoRepository detalles;
+    @Mock PagoRepository pagos;
     @InjectMocks PedidoConsultaClienteService service;
 
     @Test void consultaSoloPedidosDelPropietarioConDetalleYOrden() {

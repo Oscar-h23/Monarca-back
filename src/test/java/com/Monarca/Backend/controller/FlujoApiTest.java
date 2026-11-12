@@ -34,6 +34,7 @@ class FlujoApiTest {
     @MockBean ImagenProductoRepository imagenes;
     @MockBean UsuarioRepository usuarios;
     @MockBean PedidoRepository pedidos;
+    @MockBean PagoRepository pagos;
     @MockBean MetodoPagoRepository metodos;
     @MockBean PedidoService pedidoService;
     @MockBean PedidoConsultaClienteService consultaCliente;
