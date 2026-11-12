@@ -119,6 +119,38 @@ El frontend convierte archivos WebP a JPEG en el navegador antes de la subida. P
 Las pruebas automáticas validan formatos, extensión, y que la subida sin credencial falla sin ninguna llamada de pago a servicios externos. Falta verificar una subida real con clave de backend en un entorno autorizado.
 
 
+## Comprobantes de pago manuales (Nayeli's Moda)
+
+El cliente puede adjuntar una captura en **Mis pedidos**. Las imágenes se validan, normalizan a JPG y se guardan solo en el bucket privado `monarca-evidencias-pago`; no se publican URLs de acceso. El administrador puede revisar y confirmar o rechazar el abono manualmente. La boleta PDF **es una simulación sin validez tributaria**, no se envía a SUNAT.
+
+### HTTP 503 al enviar una evidencia desde localhost
+
+Este error no significa que el pedido sea demasiado antiguo. En `EvidenciaPagoStorageService`, un **503** indica que la clave de Supabase Storage **no llegó al proceso de Spring Boot o fue rechazada por Supabase (401/403)**. El archivo seleccionado todavía no se guarda. La API devuelve un mensaje genérico al cliente para no exponer secretos.
+
+1. Abre el proyecto **MonarcaDB** en el [panel de API Keys de Supabase](https://supabase.com/dashboard/project/ldjuyocsuvvvbllgdclv/settings/api-keys). Obtén la clave privada `service_role` (no la `anon` ni la `publishable`). Nunca la compartas, ni la guardes en Angular.
+2. En tu archivo `.env` **local** del backend, no versionado, configura:
+
+   ```dotenv
+   MONARCA_SUPABASE_URL=https://ldjuyocsuvvvbllgdclv.supabase.co
+   MONARCA_EVIDENCIAS_BUCKET=monarca-evidencias-pago
+   SUPABASE_SERVICE_ROLE_KEY=TU_CLAVE_PRIVADA_DE_MONARCADB
+   ```
+
+3. Si ejecutas el backend en **IntelliJ**, abre **Run → Edit Configurations → Spring Boot → Environment variables** y añade esas variables. Tener la clave escrita únicamente en un archivo `.env` **no garantiza** que IntelliJ la importe.
+4. Si lo arrancas desde Terminal, ejecuta desde la raíz de `Monarca-back`:
+
+   ```bash
+   set -a
+   source .env
+   set +a
+   test -n "$SUPABASE_SERVICE_ROLE_KEY" && echo "Clave cargada" || echo "Falta SUPABASE_SERVICE_ROLE_KEY"
+   ./mvnw spring-boot:run
+   ```
+
+5. Reinicia Spring Boot y vuelve a subir la evidencia. No hace falta recrear ni cancelar el pedido existente; los pedidos con pago `PENDIENTE` o `RECHAZADO` admiten un nuevo comprobante.
+
+Si recibes nuevamente **503**, verifica que la clave corresponda exactamente al proyecto `ldjuyocsuvvvbllgdclv` y que siga activa. **No pegues la clave en chats, incidencias ni capturas.** Con credenciales válidas, el backend escribe el archivo privado y el estado cambia a `EN_REVISION`.
+
 ## Recuperación de contraseña con Resend SMTP (Spring Email)
 
 El backend ya usa `spring-boot-starter-mail` y `JavaMailSender`: **no necesita una contraseña de aplicación de Gmail** ni una dependencia adicional. Resend acepta la **API Key privada como contraseña SMTP** y el nombre de usuario literal `resend`. Configuración oficial: https://resend.com/docs/send-with-smtp
