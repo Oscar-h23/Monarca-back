@@ -26,6 +26,7 @@ class GestionPagoServiceTest {
     @Mock VarianteProductoRepository variantes;
     @Mock EvidenciaPagoStorageService storage;
     @Mock BoletaPruebaPdfService pdf;
+    @Mock NotificacionesPedidoService notificaciones;
     @InjectMocks GestionPagoService service;
 
     private Pedido pedido;
@@ -65,6 +66,7 @@ class GestionPagoServiceTest {
         assertEquals("pedidos/12/comprobante.jpg", pago.getComprobanteUrl());
         assertNull(pago.getFechaConfirmacion());
         verify(pagos).save(pago);
+        verify(notificaciones).publicar(eq(pedido),eq(NotificacionesPedidoService.Tipo.EVIDENCIA_RECIBIDA),isNull());
     }
 
     @Test void administradorConfirmaSoloSiHayEvidenciaPendiente() {
@@ -76,6 +78,7 @@ class GestionPagoServiceTest {
         assertEquals("PAGADO",pago.getEstado());
         assertEquals("CONFIRMADO",pedido.getEstado());
         assertNotNull(pago.getFechaConfirmacion());
+        verify(notificaciones).publicar(eq(pedido),eq(NotificacionesPedidoService.Tipo.PAGO_APROBADO),isNull());
     }
 
     @Test void rechazoExigeMotivoYPermiteReenvio() {
@@ -89,6 +92,7 @@ class GestionPagoServiceTest {
         assertEquals("RECHAZADO",pago.getEstado());
         assertEquals("PENDIENTE_PAGO",pedido.getEstado());
         assertEquals("No se encontró el abono",pago.getObservacion());
+        verify(notificaciones).publicar(eq(pedido),eq(NotificacionesPedidoService.Tipo.PAGO_RECHAZADO),eq("No se encontró el abono"));
     }
 
     @Test void noPermiteBoletaSinPagoConfirmado() {
@@ -126,6 +130,7 @@ class GestionPagoServiceTest {
         assertEquals(12,variante.getStock());
         assertEquals("CANCELADO",pedido.getEstado());
         assertEquals("CANCELADO",pago.getEstado());
+        verify(notificaciones).publicar(eq(pedido),eq(NotificacionesPedidoService.Tipo.CANCELADO),isNull());
         assertThrows(ResponseStatusException.class,() -> service.actualizarEstado(12L,"CANCELADO"));
         verify(variantes,times(1)).save(any());
     }

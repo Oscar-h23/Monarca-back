@@ -119,6 +119,38 @@ El frontend convierte archivos WebP a JPEG en el navegador antes de la subida. P
 Las pruebas automáticas validan formatos, extensión, y que la subida sin credencial falla sin ninguna llamada de pago a servicios externos. Falta verificar una subida real con clave de backend en un entorno autorizado.
 
 
+## Notificaciones automáticas por correo de los pedidos
+
+Los correos se envían con el **SMTP de Resend ya utilizado para la recuperación de contraseña**; no es necesario otro proveedor ni modificar las tablas de Supabase.
+
+**Quién recibe los avisos:**
+
+- **Administrador:** al crear un pedido nuevo pendiente de pago; al enviar/reenvíar un comprobante para verificarlo.
+- **Cliente:** al crear el pedido; cuando se recibió su evidencia; cuando el pago se aprobó o rechazó (incluido el motivo); cuando pasó a preparación, en camino, finalizado o cancelado.
+
+Los cambios se notifican **después del COMMIT** de la transacción de compra/pago. Los correos se envían en una cola asíncrona con capacidad limitada. No se reenvían al pulsar «Actualizar estados» y el SMTP nunca puede cancelar una compra. Los fallos SMTP quedan reflejados en los logs del backend, pero el sistema no garantiza entrega ni reintenta automáticamente: para producción con alto volumen sería recomendable una tabla *outbox* con reintentos e idempotencia.
+
+**Configuración local en `.env` (solo backend, no subir a Git):**
+
+```dotenv
+MAIL_HOST=smtp.resend.com
+MAIL_PORT=587
+MAIL_USERNAME=resend
+MAIL_PASSWORD=TU_CLAVE_PRIVADA_RESEND
+MAIL_FROM=avisos@TU_DOMINIO_VERIFICADO
+MAIL_ADMIN_TO=
+SHOP_PUBLIC_URL=http://localhost:4200
+```
+
+- `MAIL_FROM` debe ser un remitente válido perteneciente a un dominio verificado en Resend. El ejemplo no es una cuenta real. Si no está configurado SMTP o el remitente válido, **se omiten los correos sin afectar la compra**.
+- `MAIL_ADMIN_TO` es opcional: permite una o varias direcciones separadas por comas. Si está vacío, se notificará a las cuentas **ADMIN activas** registradas en MonarcaDB. Es importante que dichas cuentas tengan un correo real y accesible.
+- `SHOP_PUBLIC_URL` determina los enlaces incluidos en los correos: `/mis-pedidos` para clientes y `/admin` para administración. En producción configura `https://nayelismoda.shop` cuando la API ya esté desplegada; con backend solo local, utiliza `http://localhost:4200`.
+- Si ejecutas Spring Boot mediante IntelliJ, añade todas estas variables en **Run → Edit Configurations → Environment variables**, o importa explícitamente `.env`. Al editar el archivo sin reiniciar, Java no toma los nuevos valores.
+- Verifica que Resend haya autorizado el dominio y que tu proveedor SMTP pueda enviar mensajes. Los tests de GitHub utilizan dobles de prueba, **no envían correos reales**.
+- Prueba el flujo con una **cuenta de cliente propia**, para evitar enviar notificaciones de prueba a compradores reales.
+
+La boleta PDF sigue siendo **solo una simulación sin validez tributaria y sin conexión a SUNAT**. El correo del pago confirmado incluye un enlace al área privada del cliente, pero no adjunta la evidencia ni la boleta.
+
 ## Comprobantes de pago manuales (Nayeli's Moda)
 
 El cliente puede adjuntar una captura en **Mis pedidos**. Las imágenes se validan, normalizan a JPG y se guardan solo en el bucket privado `monarca-evidencias-pago`; no se publican URLs de acceso. El administrador puede revisar y confirmar o rechazar el abono manualmente. La boleta PDF **es una simulación sin validez tributaria**, no se envía a SUNAT.

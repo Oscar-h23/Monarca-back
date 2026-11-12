@@ -45,6 +45,9 @@ public class PedidoService {
     @Autowired
     private PagoRepository pagoRepository;
 
+    @Autowired
+    private NotificacionesPedidoService notificaciones;
+
 
     @Transactional
     public Pedido procesarCompra(
@@ -311,6 +314,8 @@ public class PedidoService {
 
         pagoRepository.save(pago);
 
+        // La notificación solo sale tras COMMIT; SMTP nunca revierte la compra.
+        notificaciones.publicar(pedido, NotificacionesPedidoService.Tipo.NUEVO_PEDIDO, null);
 
         return pedido;
     }

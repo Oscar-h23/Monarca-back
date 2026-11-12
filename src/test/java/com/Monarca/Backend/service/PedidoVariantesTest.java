@@ -21,6 +21,7 @@ class PedidoVariantesTest {
     @Mock UsuarioRepository usuarios;
     @Mock MetodoPagoRepository metodos;
     @Mock PagoRepository pagos;
+    @Mock NotificacionesPedidoService notificaciones;
     @InjectMocks PedidoService service;
     VarianteProducto variante;
     PedidoRequestDto solicitud;
@@ -54,12 +55,13 @@ class PedidoVariantesTest {
                 () -> assertEquals(new BigDecimal("65.00"), detalle.getPrecioUnitario()),
                 () -> assertEquals(new BigDecimal("130.00"), detalle.getSubtotal()));
         verify(pagos).save(argThat(p -> p.getMonto().equals(pedido.getTotal())));
+        verify(notificaciones).publicar(eq(pedido),eq(NotificacionesPedidoService.Tipo.NUEVO_PEDIDO),isNull());
     }
     @Test void rechazaStockInsuficienteSinCrearPedido() {
         solicitud.setItems(List.of(item(10L,6)));
         when(variantes.findByIdForUpdate(10L)).thenReturn(Optional.of(variante));
         assertThrows(RuntimeException.class, () -> service.procesarCompra(solicitud));
-        assertEquals(5, variante.getStock()); verifyNoInteractions(pedidos, detalles, pagos);
+        assertEquals(5, variante.getStock()); verifyNoInteractions(pedidos, detalles, pagos, notificaciones);
     }
     @Test void rechazaProductoInactivo() {
         variante.getProducto().setActivo(false);
