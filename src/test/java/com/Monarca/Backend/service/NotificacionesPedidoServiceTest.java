@@ -142,6 +142,67 @@ class NotificacionesPedidoServiceTest {
         verifyNoInteractions(mail,usuarios);
     }
 
+    @Test void diagnosticoIndicaVariablesFaltantesSinMostrarSecretos() {
+        NotificacionesPedidoService servicio = construir("", false);
+        var estado = servicio.estado();
+        assertFalse(estado.configurado());
+        assertFalse(estado.claveSmtp());
+        assertFalse(estado.remitenteValido());
+        assertFalse(estado.servicioCorreo());
+        assertFalse(estado.mensaje().contains("re_clave_de_prueba"));
+        var error = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> servicio.enviarPruebaAdministrador("admin@example.test"));
+        assertEquals(503, error.getStatusCode().value());
+        verifyNoInteractions(mail);
+    }
+
+    @Test void pruebaRealSoloSeEnviaAAdminVerificadoPorControlador() {
+        NotificacionesPedidoService servicio = construir("admin@example.test", true);
+        assertTrue(servicio.estado().configurado());
+        assertDoesNotThrow(() -> servicio.enviarPruebaAdministrador("admin@example.test"));
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mail).send(captor.capture());
+        assertEquals("admin@example.test", captor.getValue().getTo()[0]);
+        assertTrue(captor.getValue().getSubject().contains("Prueba"));
+    }
+
+    @Test void pruebaDevuelveErrorSiResendRechazaAutenticacion() {
+        NotificacionesPedidoService servicio = construir("admin@example.test", true);
+        doThrow(new org.springframework.mail.MailAuthenticationException("clave inválida de prueba"))
+                .when(mail).send(any(SimpleMailMessage.class));
+        var error = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> servicio.enviarPruebaAdministrador("admin@example.test"));
+        assertEquals(502, error.getStatusCode().value());
+        assertTrue(error.getReason().contains("Resend rechazó la autenticación"));
+        assertFalse(error.getReason().contains("clave inválida de prueba"));
+    }
+
+    @Test void aceptaRemitenteConNombreQueTambienSirveParaRecuperarContrasena() {
+        when(provider.getIfAvailable()).thenReturn(mail);
+        servicio = new NotificacionesPedidoService(publisher, usuarios, provider,
+                "smtp.resend.com", "resend", "re_clave_de_prueba",
+                "Nayeli's Moda <avisos@example.test>",
+                "admin@example.test", "http://localhost:4200");
+        assertTrue(servicio.estado().configurado(),
+                "El formato con nombre visible no debe desactivar notificaciones.");
+    }
+
+    @Test void contadorDistingueEventoPublicadoDeEventoConfirmado() {
+        NotificacionesPedidoService servicio=construir("admin@example.test", true);
+        Usuario cliente=new Usuario();
+        cliente.setCorreo("compradora@example.test");
+        cliente.setNombres("Ana");
+        Pedido pedido=new Pedido();
+        pedido.setIdPedido(19L);pedido.setUsuario(cliente);
+        pedido.setCodigoPedido("MON-19-PRUEBA");
+        pedido.setTotal(new BigDecimal("39.90"));
+        servicio.publicar(pedido,NotificacionesPedidoService.Tipo.NUEVO_PEDIDO,null);
+        assertEquals(1,servicio.estado().eventosPublicados());
+        assertEquals(0,servicio.estado().eventosConfirmados());
+        assertEquals(1,servicio.estado().eventosSinTransaccion());
+        verifyNoInteractions(mail);
+    }
+
     @Test void falloSmtpNoFallaLaOperacionNiDetieneOtroAviso() {
         NotificacionesPedidoService servicio = construir("admin@example.test", true);
         doThrow(new org.springframework.mail.MailSendException("SMTP fuera de servicio"))

@@ -19,4 +19,4 @@ jobs:
           chmod +x ./mvnw
           ./mvnw -B -DskipTests package
       - name: Unit tests without database (incluye pagos y PDF de prueba)
-        run: ./mvnw -B -Dtest=MetodoPagoConfiguracionTest,ReporteVentasServiceTest,NotificacionesPedidoServiceTest,PedidoVariantesTest,ProductoVariantesTest,PasswordRecoveryServiceTest,ProbadorConfiguracionTest,AgalazProbadorServiceTest,TryOnCloudProbadorServiceTest,ProbadorCloudinaryTest,ProductoImagenStorageServiceTest,MedidasServiceTest,PedidoConsultaClienteServiceTest,GestionPagoServiceTest,EvidenciaPagoStorageServiceTest,BoletaPruebaPdfServiceTest,FlujoApiTest test
+        run: ./mvnw -B -Dtest=MetodoPagoConfiguracionTest,ReporteVentasServiceTest,NotificacionesPedidoServiceTest,NotificacionesPedidoAfterCommitTest,PedidoVariantesTest,ProductoVariantesTest,PasswordRecoveryServiceTest,ProbadorConfiguracionTest,AgalazProbadorServiceTest,TryOnCloudProbadorServiceTest,ProbadorCloudinaryTest,ProductoImagenStorageServiceTest,MedidasServiceTest,PedidoConsultaClienteServiceTest,GestionPagoServiceTest,EvidenciaPagoStorageServiceTest,BoletaPruebaPdfServiceTest,FlujoApiTest test
