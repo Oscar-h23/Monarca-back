@@ -16,6 +16,7 @@ public record PedidoClienteResponseDto(
         BigDecimal total,
         List<ProductoPedido> productos,
         String estadoPago,
+        String codigoMetodoPago,
         boolean evidenciaEnviada,
         String motivoRechazo,
         boolean boletaDisponible
