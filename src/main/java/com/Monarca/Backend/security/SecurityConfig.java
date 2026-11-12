@@ -94,6 +94,10 @@ public class SecurityConfig {
                                 "/api/categorias/**"
                         ).permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/metodos-pago").permitAll()
+                        // Operaciones del backoffice aisladas por rol.
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+
                         // =====================================
                         // ADMINISTRACIÓN DE PRODUCTOS
                         // =====================================

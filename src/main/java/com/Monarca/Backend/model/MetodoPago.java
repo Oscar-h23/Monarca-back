@@ -52,4 +52,11 @@ public class MetodoPago {
 
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
+
+    @Column(name = "telefono_yape", length = 20) private String telefonoYape;
+    @Column(name = "qr_url", columnDefinition = "TEXT") private String qrUrl;
+    @Column(name = "titular", length = 120) private String titular;
+    @Column(name = "banco", length = 120) private String banco;
+    @Column(name = "numero_cuenta", length = 40) private String numeroCuenta;
+    @Column(name = "cci", length = 30) private String cci;
 }
