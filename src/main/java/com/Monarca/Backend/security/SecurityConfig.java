@@ -127,6 +127,12 @@ public class SecurityConfig {
                                 "/api/pedidos/procesar"
                         ).authenticated()
 
+                        // Un cliente solo puede consultar sus propias compras.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/pedidos/mis-pedidos"
+                        ).authenticated()
+
                         // Solo administrador ve todos los pedidos
                         .requestMatchers(
                                 HttpMethod.GET,

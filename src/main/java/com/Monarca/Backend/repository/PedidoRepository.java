@@ -8,7 +8,8 @@ import java.util.List;
 public interface PedidoRepository
         extends JpaRepository<Pedido, Long> {
 
-    List<Pedido> findByUsuario_IdUsuario(
-            Long idUsuario
-    );
+    List<Pedido> findByUsuario_IdUsuario(Long idUsuario);
+
+    // Orden más reciente primero, siempre acotado al propietario autenticado.
+    List<Pedido> findByUsuario_IdUsuarioOrderByFechaPedidoDescIdPedidoDesc(Long idUsuario);
 }
