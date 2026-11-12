@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@WebMvcTest({ProductoController.class, CategoriaController.class, PedidoController.class, MetodoPagoController.class, PedidoClienteController.class, GestionPagoController.class})
+@WebMvcTest({ProductoController.class, CategoriaController.class, PedidoController.class, MetodoPagoController.class, PedidoClienteController.class, GestionPagoController.class, ReporteVentasController.class})
 @Import({SecurityConfig.class, ApplicationConfig.class, CustomUserDetailsService.class, JwtUtil.class, ProductoService.class})
 class FlujoApiTest {
     @Autowired MockMvc mvc;
@@ -41,6 +41,7 @@ class FlujoApiTest {
     @MockBean MetodoPagoRepository metodos;
     @MockBean PedidoService pedidoService;
     @MockBean GestionPagoService gestionPago;
+    @MockBean ReporteVentasService reportesVentas;
     @MockBean PedidoConsultaClienteService consultaCliente;
     @DynamicPropertySource static void propiedades(DynamicPropertyRegistry registry) {
         String claveEfimera = UUID.randomUUID().toString() + UUID.randomUUID();
@@ -143,6 +144,28 @@ class FlujoApiTest {
                 .andReturn().getResponse().getContentAsString();
         assertFalse(respuesta.contains("SUPABASE_SERVICE_ROLE_KEY"));
         verify(gestionPago).enviarEvidencia(eq(12L),eq("cliente@example.test"),any());
+    }
+
+    @Test void clienteNoPuedeVerConfiguracionBancariaAdminNiReportesDeVentas() throws Exception {
+        String jwt=token("CLIENTE");
+        mvc.perform(get("/api/admin/metodos-pago").header("Authorization",jwt))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/admin/metodos-pago/1").header("Authorization",jwt)
+                .contentType("application/json").content("{\"activo\":true}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/reportes/ventas?desde=2026-11-01&hasta=2026-11-12")
+                .header("Authorization",jwt)).andExpect(status().isForbidden());
+        verifyNoInteractions(reportesVentas);
+    }
+
+    @Test void administradorPuedeConsultarConfiguracionMetodos() throws Exception {
+        MetodoPago m=new MetodoPago();m.setIdMetodoPago(3L);m.setCodigo("YAPE");
+        m.setNombre("Yape");m.setActivo(true);
+        when(metodos.findAll()).thenReturn(List.of(m));
+        mvc.perform(get("/api/admin/metodos-pago").header("Authorization",token("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].codigo").value("YAPE"))
+                .andExpect(jsonPath("$[0].configurado").value(false));
     }
 
     @Test void metodosPagoUsanIdentificadoresReales() throws Exception {
