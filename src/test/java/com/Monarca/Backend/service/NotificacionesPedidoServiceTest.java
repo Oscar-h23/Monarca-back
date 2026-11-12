@@ -177,6 +177,32 @@ class NotificacionesPedidoServiceTest {
         assertFalse(error.getReason().contains("clave inválida de prueba"));
     }
 
+    @Test void aceptaRemitenteConNombreQueTambienSirveParaRecuperarContrasena() {
+        when(provider.getIfAvailable()).thenReturn(mail);
+        servicio = new NotificacionesPedidoService(publisher, usuarios, provider,
+                "smtp.resend.com", "resend", "re_clave_de_prueba",
+                "Nayeli's Moda <avisos@example.test>",
+                "admin@example.test", "http://localhost:4200");
+        assertTrue(servicio.estado().configurado(),
+                "El formato con nombre visible no debe desactivar notificaciones.");
+    }
+
+    @Test void contadorDistingueEventoPublicadoDeEventoConfirmado() {
+        NotificacionesPedidoService servicio=construir("admin@example.test", true);
+        Usuario cliente=new Usuario();
+        cliente.setCorreo("compradora@example.test");
+        cliente.setNombres("Ana");
+        Pedido pedido=new Pedido();
+        pedido.setIdPedido(19L);pedido.setUsuario(cliente);
+        pedido.setCodigoPedido("MON-19-PRUEBA");
+        pedido.setTotal(new BigDecimal("39.90"));
+        servicio.publicar(pedido,NotificacionesPedidoService.Tipo.NUEVO_PEDIDO,null);
+        assertEquals(1,servicio.estado().eventosPublicados());
+        assertEquals(0,servicio.estado().eventosConfirmados());
+        assertEquals(1,servicio.estado().eventosSinTransaccion());
+        verifyNoInteractions(mail);
+    }
+
     @Test void falloSmtpNoFallaLaOperacionNiDetieneOtroAviso() {
         NotificacionesPedidoService servicio = construir("admin@example.test", true);
         doThrow(new org.springframework.mail.MailSendException("SMTP fuera de servicio"))
