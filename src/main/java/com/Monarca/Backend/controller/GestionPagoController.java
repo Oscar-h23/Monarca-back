@@ -24,6 +24,20 @@ public class GestionPagoController {
         this.service = service;
     }
 
+    /**
+     * Respuesta legible para el formulario; no expone claves ni detalles privados
+     * de conexión a Supabase. Se aplica únicamente a los endpoints de este controlador.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> errorDeOperacion(ResponseStatusException error) {
+        String mensaje = error.getStatusCode().value() == 503
+                ? "El almacenamiento de comprobantes no está disponible. La tienda debe revisar la configuración privada de Supabase Storage."
+                : error.getReason() != null ? error.getReason() : "No se pudo completar la operación.";
+        return ResponseEntity.status(error.getStatusCode())
+                .cacheControl(CacheControl.noStore())
+                .body(Map.of("mensaje", mensaje));
+    }
+
     @PostMapping(value="/api/pedidos/{id}/evidencia", consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, String> subir(@PathVariable Long id,
                                      @RequestParam("archivo") MultipartFile archivo,

@@ -15,6 +15,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.util.*;
 import static org.mockito.Mockito.*;
@@ -123,6 +126,23 @@ class FlujoApiTest {
                 .contentType("application/json").content("{\"accion\":\"RECHAZAR\",\"motivo\":\"No coincide\"}"))
                 .andExpect(status().isOk());
         verify(gestionPago).revisarPago(12L,"RECHAZAR","No coincide");
+    }
+
+    @Test void servicioStorageNoDisponibleDevuelveMensajeClaroSinClave() throws Exception {
+        String jwt = token("CLIENTE");
+        doThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Configura SUPABASE_SERVICE_ROLE_KEY en el backend."))
+                .when(gestionPago).enviarEvidencia(eq(12L),eq("cliente@example.test"),any());
+        MockMultipartFile imagen = new MockMultipartFile(
+                "archivo", "comprobante.jpg", "image/jpeg", new byte[]{1,2,3});
+        String respuesta = mvc.perform(multipart("/api/pedidos/12/evidencia")
+                        .file(imagen).header("Authorization",jwt))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.mensaje").value(
+                        "El almacenamiento de comprobantes no está disponible. La tienda debe revisar la configuración privada de Supabase Storage."))
+                .andReturn().getResponse().getContentAsString();
+        assertFalse(respuesta.contains("SUPABASE_SERVICE_ROLE_KEY"));
+        verify(gestionPago).enviarEvidencia(eq(12L),eq("cliente@example.test"),any());
     }
 
     @Test void metodosPagoUsanIdentificadoresReales() throws Exception {
