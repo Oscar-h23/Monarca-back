@@ -98,6 +98,20 @@ public class PedidoService {
             );
         }
 
+        // No aceptar órdenes pagables mediante Yape/transferencia hasta que
+        // el administrador publique datos reales: el navegador no es autoridad.
+        if ("YAPE".equalsIgnoreCase(metodoPago.getCodigo())
+                && (metodoPago.getTelefonoYape() == null
+                    || !metodoPago.getTelefonoYape().matches("9[0-9]{8}"))) {
+            throw new IllegalArgumentException("Yape todavía no está configurado para recibir pagos.");
+        }
+        if ("TRANSFERENCIA".equalsIgnoreCase(metodoPago.getCodigo())
+                && (metodoPago.getBanco() == null || metodoPago.getBanco().isBlank()
+                    || metodoPago.getNumeroCuenta() == null || metodoPago.getNumeroCuenta().isBlank()
+                    || metodoPago.getCci() == null || !metodoPago.getCci().matches("[0-9]{20}"))) {
+            throw new IllegalArgumentException("La transferencia todavía no tiene una cuenta configurada.");
+        }
+
 
         // =====================================================
         // 3. PROCESAR ITEMS
