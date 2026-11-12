@@ -74,7 +74,8 @@ public class PedidoConsultaClienteService {
                 p.getIdPedido(), p.getCodigoPedido(), p.getEstado(), p.getFechaPedido(),
                 p.getSubtotal(), p.getDescuento(), p.getCostoEnvio(), p.getTotal(),
                 List.copyOf(porPedido.getOrDefault(p.getIdPedido(), List.of())),
-                estadoPago, evidencia,
+                estadoPago, pago != null && pago.getMetodoPago() != null
+                        ? pago.getMetodoPago().getCodigo() : null, evidencia,
                 "RECHAZADO".equals(estadoPago) ? pago.getObservacion() : null,
                 "PAGADO".equals(estadoPago) && !"CANCELADO".equals(p.getEstado()));
         }).toList();
