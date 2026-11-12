@@ -6,6 +6,8 @@ import com.Monarca.Backend.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -24,6 +26,10 @@ import static org.mockito.Mockito.*;
  * No usa una base de datos ni establece conexiones SMTP.
  */
 class NotificacionesPedidoAfterCommitTest {
+    @Configuration(proxyBeanMethods = false)
+    @EnableTransactionManagement
+    static class ConfiguracionTransacciones {}
+
     static class TxSinBaseDatos extends AbstractPlatformTransactionManager {
         @Override protected Object doGetTransaction() { return new Object(); }
         @Override protected void doBegin(Object tx, TransactionDefinition definition) {}
@@ -50,6 +56,7 @@ class NotificacionesPedidoAfterCommitTest {
         ObjectProvider<JavaMailSender> proveedor = mock(ObjectProvider.class);
         when(proveedor.getIfAvailable()).thenReturn(mail);
         try (AnnotationConfigApplicationContext contexto = new AnnotationConfigApplicationContext()) {
+            contexto.register(ConfiguracionTransacciones.class);
             contexto.registerBean("transactionManager",PlatformTransactionManager.class,TxSinBaseDatos::new);
             contexto.registerBean(NotificacionesPedidoService.class,()->new NotificacionesPedidoService(
                     contexto,usuarios,proveedor,"smtp.resend.com","resend",
