@@ -2,8 +2,10 @@ package com.Monarca.Backend.controller;
 
 import com.Monarca.Backend.dto.PedidoRequestDto;
 import com.Monarca.Backend.model.Pedido;
+import com.Monarca.Backend.model.Pago;
 import com.Monarca.Backend.model.Usuario;
 import com.Monarca.Backend.repository.PedidoRepository;
+import com.Monarca.Backend.repository.PagoRepository;
 import com.Monarca.Backend.repository.UsuarioRepository;
 import com.Monarca.Backend.service.PedidoService;
 
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/pedidos")
@@ -29,6 +32,9 @@ public class PedidoController {
     @Autowired
     private PedidoRepository pedidoRepository;
 
+    @Autowired
+    private PagoRepository pagoRepository;
+
 
     // =========================================================
     // LISTAR PEDIDOS
@@ -36,46 +42,36 @@ public class PedidoController {
 
     @GetMapping
     public ResponseEntity<?> listarTodosLosPedidos() {
-
-        List<Map<String, Object>> respuesta =
-                pedidoRepository
-                        .findAll()
-                        .stream()
-                        .map(pedido ->
-                                Map.<String, Object>of(
-                                        "idPedido",
-                                        pedido.getIdPedido(),
-
-                                        "codigoPedido",
-                                        pedido.getCodigoPedido(),
-
-                                        "estado",
-                                        pedido.getEstado(),
-
-                                        "subtotal",
-                                        pedido.getSubtotal(),
-
-                                        "total",
-                                        pedido.getTotal(),
-
-                                        "cliente",
-                                        pedido
-                                                .getUsuario()
-                                                .getCorreo(),
-
-                                        "fechaPedido",
-                                        pedido.getFechaPedido()
-                                )
-                        )
-                        .toList();
-
-
-        return ResponseEntity.ok(
-                respuesta
-        );
+        List<Pedido> lista = pedidoRepository.findAll();
+        List<Long> ids = lista.stream().map(Pedido::getIdPedido).toList();
+        Map<Long, Pago> pagosPorPedido = new HashMap<>();
+        if (!ids.isEmpty()) {
+            for (Pago pago : pagoRepository.findByPedido_IdPedidoIn(ids)) {
+                pagosPorPedido.merge(pago.getPedido().getIdPedido(), pago,
+                        (anterior, siguiente) -> anterior.getIdPago() > siguiente.getIdPago() ? anterior : siguiente);
+            }
+        }
+        List<Map<String, Object>> respuesta = lista.stream().map(pedido -> {
+            Pago pago = pagosPorPedido.get(pedido.getIdPedido());
+            Map<String, Object> fila = new HashMap<>();
+            fila.put("idPedido", pedido.getIdPedido());
+            fila.put("codigoPedido", pedido.getCodigoPedido());
+            fila.put("estado", pedido.getEstado());
+            fila.put("subtotal", pedido.getSubtotal());
+            fila.put("total", pedido.getTotal());
+            fila.put("cliente", pedido.getUsuario().getCorreo());
+            fila.put("fechaPedido", pedido.getFechaPedido());
+            fila.put("estadoPago", pago != null ? pago.getEstado() : "PENDIENTE");
+            fila.put("metodoPago", pago != null && pago.getMetodoPago() != null ? pago.getMetodoPago().getNombre() : "Por coordinar");
+            fila.put("evidenciaDisponible", pago != null && pago.getComprobanteUrl() != null && !pago.getComprobanteUrl().isBlank());
+            fila.put("motivoRechazo", pago != null && "RECHAZADO".equals(pago.getEstado()) ? pago.getObservacion() : null);
+            fila.put("boletaDisponible", pago != null && "PAGADO".equals(pago.getEstado()));
+            return fila;
+        }).toList();
+        return ResponseEntity.ok(respuesta);
     }
 
-
+    // =========================================================
     // =========================================================
     // CREAR PEDIDO
     // =========================================================
