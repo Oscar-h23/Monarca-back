@@ -108,6 +108,19 @@ public class EvidenciaPagoStorageService {
     static byte[] limpiar(byte[] datos) {
         if (datos == null || datos.length == 0 || datos.length > MAX_BYTES)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tamaño de evidencia inválido.");
+        // Validar firma de archivo; no aceptar GIF/TIFF/SVG disfrazados de foto.
+        boolean jpeg = datos.length > 2 && (datos[0] & 0xff) == 0xff
+                && (datos[1] & 0xff) == 0xd8 && (datos[2] & 0xff) == 0xff;
+        boolean png = datos.length > 8
+                && (datos[0] & 0xff) == 137 && (datos[1] & 0xff) == 80
+                && (datos[2] & 0xff) == 78 && (datos[3] & 0xff) == 71
+                && (datos[4] & 0xff) == 13 && (datos[5] & 0xff) == 10
+                && (datos[6] & 0xff) == 26 && (datos[7] & 0xff) == 10;
+        boolean webp = datos.length > 12
+                && datos[0] == 'R' && datos[1] == 'I' && datos[2] == 'F' && datos[3] == 'F'
+                && datos[8] == 'W' && datos[9] == 'E' && datos[10] == 'B' && datos[11] == 'P';
+        if (!jpeg && !png && !webp)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo se admiten imágenes JPG, PNG o WebP.");
         try (ImageInputStream stream = ImageIO.createImageInputStream(new ByteArrayInputStream(datos))) {
             if (stream == null) throw new IOException("No es imagen.");
             Iterator<ImageReader> lectores = ImageIO.getImageReaders(stream);
