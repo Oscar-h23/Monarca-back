@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@WebMvcTest({ProductoController.class, CategoriaController.class, PedidoController.class, MetodoPagoController.class})
+@WebMvcTest({ProductoController.class, CategoriaController.class, PedidoController.class, MetodoPagoController.class, PedidoClienteController.class})
 @Import({SecurityConfig.class, ApplicationConfig.class, CustomUserDetailsService.class, JwtUtil.class, ProductoService.class})
 class FlujoApiTest {
     @Autowired MockMvc mvc;
@@ -36,6 +36,7 @@ class FlujoApiTest {
     @MockBean PedidoRepository pedidos;
     @MockBean MetodoPagoRepository metodos;
     @MockBean PedidoService pedidoService;
+    @MockBean PedidoConsultaClienteService consultaCliente;
     @DynamicPropertySource static void propiedades(DynamicPropertyRegistry registry) {
         String claveEfimera = UUID.randomUUID().toString() + UUID.randomUUID();
         registry.add("jwt.secret", () -> claveEfimera);
@@ -74,6 +75,7 @@ class FlujoApiTest {
     @Test void anonimoNoPuedeComprarNiAdministrar() throws Exception {
         mvc.perform(post("/api/pedidos/procesar").contentType("application/json").content("{}")).andExpect(status().isForbidden());
         mvc.perform(get("/api/pedidos")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/pedidos/mis-pedidos")).andExpect(status().isForbidden());
         mvc.perform(delete("/api/productos/1")).andExpect(status().isForbidden());
     }
     @Test void clienteNoPuedeAdministrar() throws Exception {
@@ -90,6 +92,12 @@ class FlujoApiTest {
                 .contentType("application/json").content("{\"idUsuario\":999,\"idMetodoPago\":3,\"items\":[{\"idVariante\":10,\"cantidad\":2}]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(130));
         verify(pedidoService).procesarCompra(argThat(p -> p.getIdUsuario()==2L && p.getItems().getFirst().getIdVariante()==10L));
+    }
+    @Test void clienteVeSoloSusPedidosDesdeJWT() throws Exception {
+        when(consultaCliente.listarPorCorreo("cliente@example.test")).thenReturn(List.of());
+        mvc.perform(get("/api/pedidos/mis-pedidos").header("Authorization", token("CLIENTE")))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+        verify(consultaCliente).listarPorCorreo("cliente@example.test");
     }
     @Test void adminListaPedidos() throws Exception {
         mvc.perform(get("/api/pedidos").header("Authorization",token("ADMIN"))).andExpect(status().isOk());
