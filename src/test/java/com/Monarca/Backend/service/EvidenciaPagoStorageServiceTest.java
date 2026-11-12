@@ -18,6 +18,13 @@ class EvidenciaPagoStorageServiceTest {
         assertEquals((byte)0xd8,limpia[1]);
         assertNotNull(ImageIO.read(new java.io.ByteArrayInputStream(limpia)));
     }
+    @Test void rechazaGifAunqueSeaImagen() throws Exception {
+        BufferedImage gif = new BufferedImage(10,10,BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream datos = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(gif,"gif",datos));
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> EvidenciaPagoStorageService.limpiar(datos.toByteArray())).getStatusCode());
+    }
     @Test void rechazaArchivoSinImagenYArchivoVacio() {
         assertEquals(HttpStatus.BAD_REQUEST,assertThrows(ResponseStatusException.class,
                 () -> EvidenciaPagoStorageService.limpiar("texto cualquiera".getBytes())).getStatusCode());
