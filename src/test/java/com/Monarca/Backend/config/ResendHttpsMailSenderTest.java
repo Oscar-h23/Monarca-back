@@ -40,7 +40,8 @@ class ResendHttpsMailSenderTest {
     }
 
     @Test void envioUsaPuertoHttpsYTokenSoloEnHeader() throws Exception {
-        when(client.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(response(200));
+        HttpResponse<String> respuesta = response(200);
+        when(client.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(respuesta);
         sender("re_example_test_only").send(email());
         var captor = org.mockito.ArgumentCaptor.forClass(HttpRequest.class);
         verify(client).send(captor.capture(), any(HttpResponse.BodyHandler.class));
@@ -57,7 +58,8 @@ class ResendHttpsMailSenderTest {
     }
 
     @Test void erroresHttpNoExponenCredenciales() throws Exception {
-        when(client.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(response(401));
+        HttpResponse<String> respuesta = response(401);
+        when(client.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(respuesta);
         var ex = assertThrows(MailSendException.class, () -> sender("re_example_test_only").send(email()));
         assertEquals("Resend HTTPS API HTTP 401", ex.getMessage());
         assertFalse(ex.getMessage().contains("re_example_test_only"));
