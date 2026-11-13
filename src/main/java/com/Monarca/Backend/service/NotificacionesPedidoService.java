@@ -118,7 +118,7 @@ public class NotificacionesPedidoService {
     public EstadoCorreo estado() {
         return new EstadoCorreo(smtpConfigurado, hostListo, usuarioListo, passwordListo,
                 remitenteListo, correo != null,
-                smtpConfigurado ? "Configuración SMTP local completa. Envía una prueba para verificar Resend."
+                smtpConfigurado ? "Configuración de correo completa. Envía una prueba y comprueba Resend."
                         : "Faltan variables SMTP. Revisa los indicadores y reinicia Spring Boot.",
                 publicados.get(), confirmados.get(), aceptadosSmtp.get(),
                 fallidosSmtp.get(), omitidos.get(), fueraTransaccion.get());
@@ -127,7 +127,7 @@ public class NotificacionesPedidoService {
     @PostConstruct
     void registrarConfiguracion() {
         if (smtpConfigurado) {
-            log.info("Avisos de pedidos: configuración SMTP local completa; falta comprobar entrega real en Resend.");
+            log.info("Avisos de pedidos: configuración de correo completa; falta comprobar entrega real en Resend.");
         } else {
             String faltantes = String.join(", ", requisitosFaltantes());
             log.warn("Avisos de pedidos DESACTIVADOS. Revisa en el backend: {}. Nunca incluyas claves en logs.",
@@ -166,10 +166,10 @@ public class NotificacionesPedidoService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "Resend rechazó la autenticación. Revisa MAIL_USERNAME y MAIL_PASSWORD.");
         } catch (MailException e) {
-            log.warn("Prueba SMTP fallida ({}). Revisar conexión, dominio y remitente en Resend.",
+            log.warn("Prueba de correo fallida ({}). Revisar conexión, dominio y remitente en Resend.",
                     e.getClass().getSimpleName());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "Resend no aceptó el envío. Revisa el dominio verificado, MAIL_FROM y la conexión SMTP.");
+                    "Resend no aceptó el envío. Revisa la API key, el dominio verificado y MAIL_FROM.");
         }
     }
 
@@ -295,12 +295,23 @@ public class NotificacionesPedidoService {
             email.setText(texto);
             correo.send(email);
             aceptadosSmtp.incrementAndGet();
-            log.info("Resend SMTP aceptó una notificación del pedido {}.", pedidoId);
+            log.info("Resend aceptó una notificación del pedido {}.", pedidoId);
         } catch (RuntimeException ex) {
             fallidosSmtp.incrementAndGet();
             // No registrar tokens SMTP, datos personales ni contenido del correo.
-            log.warn("Notificación de pedido {} no enviada: {}. Revisa Resend (dominio/remitente/SMTP).", pedidoId, ex.getClass().getSimpleName());
+            log.warn("Notificación de pedido {} no enviada: {} ({}). Revisa Resend y el transporte.",
+                    pedidoId, ex.getClass().getSimpleName(), mensajeSeguro(ex));
         }
+    }
+
+    /** No registrar respuestas HTTP o destinatarios: pueden revelar información privada. */
+    private static String mensajeSeguro(RuntimeException ex) {
+        if (ex instanceof org.springframework.mail.MailSendException) {
+            String msj = ex.getMessage();
+            if (msj != null && msj.matches("Resend HTTPS API HTTP [0-9]{3}"))
+                return msj;
+        }
+        return "sin detalles sensibles";
     }
 
     private static boolean remitenteValido(String remitente) {

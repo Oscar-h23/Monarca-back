@@ -105,7 +105,7 @@ public class PasswordRecoveryService {
             correo.send(mensaje);
         } catch (RuntimeException ex) {
             if (clave != null) enlaces.remove(clave);
-            log.warn("No se pudo enviar un correo de recuperación. Revisa la configuración SMTP y la conexión.");
+            log.warn("No se pudo enviar un correo de recuperación. Revisa el transporte Resend y la conexión.");
         }
     }
 
