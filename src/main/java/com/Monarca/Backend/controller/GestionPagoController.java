@@ -68,11 +68,11 @@ public class GestionPagoController {
         return Map.of("mensaje", "Revisión de pago registrada.");
     }
 
-    @PutMapping("/api/admin/pedidos/{id}/aprobar-prueba")
+    @PutMapping("/api/admin/pedidos/{id}/confirmar-pago-manual")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public Map<String,String> aprobarPrueba(@PathVariable Long id) {
-        service.aprobarPedidoPruebaSinEvidencia(id);
-        return Map.of("mensaje", "Pedido confirmado solo para pruebas; no representa un pago recibido.");
+    public Map<String,String> confirmarPagoManual(@PathVariable Long id) {
+        service.confirmarPagoManualSinComprobante(id);
+        return Map.of("mensaje", "Pago confirmado manualmente sin comprobante adjunto.");
     }
 
     public record EstadoPedido(String estado) {}
