@@ -114,21 +114,21 @@ public class GestionPagoService {
     }
 
     /**
-     * Excepción temporal de pruebas: el administrador confirma el pedido sin
-     * acreditar un ingreso real. Se marca para excluirlo de los reportes de ventas.
-     * No envía el correo de pago aprobado, pues no existe abono verificado.
+     * Confirmación administrativa de un pago recibido sin fotografía del comprobante.
+     * Debe usarse solamente después de verificar el abono por otro medio.
+     * Se conserva una referencia de auditoría de la confirmación manual.
      */
     @Transactional
-    public void aprobarPedidoPruebaSinEvidencia(Long idPedido) {
+    public void confirmarPagoManualSinComprobante(Long idPedido) {
         Pedido pedido = pedidoBloqueado(idPedido);
         if ("CANCELADO".equals(pedido.getEstado()) || "FINALIZADO".equals(pedido.getEstado()))
-            throw conflicto("Este pedido no puede confirmarse como prueba.");
+            throw conflicto("Este pedido no admite confirmación manual.");
         Pago pago = pagoBloqueado(idPedido);
         if (!List.of("PENDIENTE", "RECHAZADO").contains(pago.getEstado())
                 || (pago.getComprobanteUrl() != null && !pago.getComprobanteUrl().isBlank()))
-            throw conflicto("La aprobación de prueba es solo para pedidos sin comprobante y pendientes.");
+            throw conflicto("Solo pueden confirmarse manualmente pagos pendientes sin comprobante.");
         pago.setEstado("PAGADO");
-        pago.setObservacion("APROBACION_PRUEBA_SIN_PAGO");
+        pago.setObservacion("CONFIRMACION_MANUAL_SIN_COMPROBANTE");
         pago.setFechaConfirmacion(OffsetDateTime.now());
         pedido.setEstado("CONFIRMADO");
         pagos.save(pago);
