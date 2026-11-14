@@ -45,7 +45,8 @@ public class ReporteVentasService {
         OffsetDateTime fin = hasta.plusDays(1).atStartOfDay(LIMA).toOffsetDateTime();
         Map<String, Object> parametros = Map.of("inicio", inicio, "fin", fin);
         String filtro = "p.fecha_pedido >= :inicio AND p.fecha_pedido < :fin";
-        String pagado = "EXISTS (SELECT 1 FROM monarca.pagos pg WHERE pg.id_pedido=p.id_pedido AND pg.estado='PAGADO')";
+        String pagado = "EXISTS (SELECT 1 FROM monarca.pagos pg WHERE pg.id_pedido=p.id_pedido"
+                + " AND pg.estado='PAGADO' AND COALESCE(pg.observacion,'') <> 'APROBACION_PRUEBA_SIN_PAGO')";
         String revision = "EXISTS (SELECT 1 FROM monarca.pagos pg WHERE pg.id_pedido=p.id_pedido AND pg.estado='EN_REVISION')";
         String totales = "SELECT COUNT(*) AS registrados,"
                 + " COUNT(*) FILTER (WHERE " + pagado + ") AS confirmados,"
