@@ -113,6 +113,28 @@ public class GestionPagoService {
                 "RECHAZAR".equals(accion) ? pago.getObservacion() : null);
     }
 
+    /**
+     * Excepción temporal de pruebas: el administrador confirma el pedido sin
+     * acreditar un ingreso real. Se marca para excluirlo de los reportes de ventas.
+     * No envía el correo de pago aprobado, pues no existe abono verificado.
+     */
+    @Transactional
+    public void aprobarPedidoPruebaSinEvidencia(Long idPedido) {
+        Pedido pedido = pedidoBloqueado(idPedido);
+        if ("CANCELADO".equals(pedido.getEstado()) || "FINALIZADO".equals(pedido.getEstado()))
+            throw conflicto("Este pedido no puede confirmarse como prueba.");
+        Pago pago = pagoBloqueado(idPedido);
+        if (!List.of("PENDIENTE", "RECHAZADO").contains(pago.getEstado())
+                || (pago.getComprobanteUrl() != null && !pago.getComprobanteUrl().isBlank()))
+            throw conflicto("La aprobación de prueba es solo para pedidos sin comprobante y pendientes.");
+        pago.setEstado("PAGADO");
+        pago.setObservacion("APROBACION_PRUEBA_SIN_PAGO");
+        pago.setFechaConfirmacion(OffsetDateTime.now());
+        pedido.setEstado("CONFIRMADO");
+        pagos.save(pago);
+        pedidos.save(pedido);
+    }
+
     @Transactional
     public void actualizarEstado(Long idPedido, String nuevo) {
         Pedido pedido = pedidoBloqueado(idPedido);
