@@ -50,6 +50,12 @@ public class ProductoService {
     private ImagenProductoRepository imagenRepository;
 
 
+    private static void validarCostoCompra(BigDecimal costo) {
+        if (costo != null && (costo.signum() < 0 || costo.scale() > 2)) {
+            throw new IllegalArgumentException("El costo de compra debe ser positivo y tener máximo dos decimales.");
+        }
+    }
+
     // =========================================================
     // LISTAR PRODUCTOS
     // =========================================================
@@ -86,6 +92,7 @@ public class ProductoService {
             throw new IllegalArgumentException("Precio base inválido");
         }
 
+        validarCostoCompra(dto.getCostoCompra());
         // Validar todas las variantes antes de guardar; la transacción es atómica.
         List<VarianteProductoInputDto> entradas = prepararVariantes(dto);
         Categoria categoria = categoriaRepository.findByNombreIgnoreCase(dto.getCategoria())
@@ -99,6 +106,7 @@ public class ProductoService {
         producto.setMarca(valorODefecto(dto.getMarca(), "Monarca"));
         producto.setPrecioBase(dto.getPrecioBase() != null
                 ? dto.getPrecioBase() : entradas.get(0).getPrecio());
+        producto.setCostoCompra(dto.getCostoCompra());
         producto.setActivo(true);
         producto.setDestacado(false);
         producto = productoRepository.save(producto);
@@ -148,6 +156,7 @@ public class ProductoService {
                 || dto.getVariantes().isEmpty()
                 ? List.of() : prepararVariantes(dto);
         validarImagen(dto.getImg());
+        validarCostoCompra(dto.getCostoCompra());
         if (dto.getPrecioBase() != null && dto.getPrecioBase().signum() < 0) throw new IllegalArgumentException("Precio base inválido");
         if (dto.getPrecio() != null && dto.getPrecio().signum() < 0) throw new IllegalArgumentException("Precio inválido");
         Producto producto = productoRepository
@@ -246,6 +255,7 @@ public class ProductoService {
         }
 
 
+        if (dto.getCostoCompra() != null) producto.setCostoCompra(dto.getCostoCompra());
         producto = productoRepository.save(
                 producto
         );
