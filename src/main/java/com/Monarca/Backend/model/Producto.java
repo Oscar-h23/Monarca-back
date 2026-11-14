@@ -41,6 +41,10 @@ public class Producto {
     @Column(name = "precio_base", nullable = false, precision = 10, scale = 2)
     private BigDecimal precioBase;
 
+    // Dato interno; no se incluye en la respuesta pública de catálogo.
+    @Column(name = "costo_compra", precision = 10, scale = 2)
+    private BigDecimal costoCompra;
+
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 
