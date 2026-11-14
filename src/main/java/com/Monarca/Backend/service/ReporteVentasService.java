@@ -27,7 +27,8 @@ public class ReporteVentasService {
 
     public record Kpis(BigDecimal ventasConfirmadas, long pedidosConfirmados,
                        long pedidosRegistrados, long pagosEnRevision, long unidadesVendidas,
-                       BigDecimal ticketPromedio) {}
+                       BigDecimal ticketPromedio, BigDecimal costoMercaderia,
+                       BigDecimal gananciaVentaMenosCompra, long partidasSinCosto) {}
     public record VentaDia(String fecha, BigDecimal importe, long pedidos) {}
     public record FormaPago(String nombre, BigDecimal importe, long pedidos) {}
     public record Estado(String estado, long cantidad) {}
@@ -56,7 +57,8 @@ public class ReporteVentasService {
             BigDecimal venta = rs.getBigDecimal("ventas");
             return new Kpis(venta, pagados, rs.getLong("registrados"), rs.getLong("revision"),
                     0, pagados == 0 ? BigDecimal.ZERO
-                            : venta.divide(BigDecimal.valueOf(pagados),2,RoundingMode.HALF_UP));
+                            : venta.divide(BigDecimal.valueOf(pagados),2,RoundingMode.HALF_UP),
+                    BigDecimal.ZERO, BigDecimal.ZERO, 0L);
         });
         if (parciales == null) throw new IllegalStateException("No se pudieron calcular métricas.");
 
@@ -66,9 +68,27 @@ public class ReporteVentasService {
                 + " AND " + pagado,
                 parametros, Long.class);
 
+        // El costo de compra registrado actualmente es un valor estimado y no un
+        // histórico congelado al momento de la venta. No duplicar pedidos por pagos.
+        // Se restringe a las mismas ventas con pago confirmado del reporte.
+        record CostoVentas(BigDecimal importe, long sinCosto) {}
+        CostoVentas costoVentas = db.queryForObject(
+                "SELECT COALESCE(SUM(d.cantidad * pr.costo_compra),0) AS importe,"
+                + " COUNT(*) FILTER (WHERE pr.costo_compra IS NULL) AS sin_costo"
+                + " FROM monarca.detalles_pedido d"
+                + " JOIN monarca.pedidos p ON p.id_pedido=d.id_pedido"
+                + " JOIN monarca.variantes_producto v ON v.id_variante=d.id_variante"
+                + " JOIN monarca.productos pr ON pr.id_producto=v.id_producto"
+                + " WHERE " + filtro + " AND " + pagado,
+                parametros, (rs,i) -> new CostoVentas(rs.getBigDecimal("importe"),rs.getLong("sin_costo")));
+        if (costoVentas == null) throw new IllegalStateException("No se pudieron consultar los costos.");
+        BigDecimal ganancia = costoVentas.sinCosto() == 0
+                ? parciales.ventasConfirmadas().subtract(costoVentas.importe()) : null;
+
         Kpis kpis = new Kpis(parciales.ventasConfirmadas(),parciales.pedidosConfirmados(),
                 parciales.pedidosRegistrados(),parciales.pagosEnRevision(),
-                unidades == null ? 0 : unidades,parciales.ticketPromedio());
+                unidades == null ? 0 : unidades,parciales.ticketPromedio(),
+                costoVentas.importe(),ganancia,costoVentas.sinCosto());
 
         List<VentaDia> presentes = db.query(
                 "SELECT to_char((p.fecha_pedido AT TIME ZONE 'America/Lima')::date,'YYYY-MM-DD') AS dia,"
