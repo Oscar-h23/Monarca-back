@@ -23,6 +23,7 @@ public class ProductoDto {
 
     private BigDecimal precio;
     private BigDecimal precioBase;
+    private BigDecimal costoCompra;
 
     private Integer stock;
     private Integer stockMinimo;
