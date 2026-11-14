@@ -4,10 +4,6 @@ import com.Monarca.Backend.model.Rol;
 import com.Monarca.Backend.model.Usuario;
 import com.Monarca.Backend.repository.RolRepository;
 import com.Monarca.Backend.repository.UsuarioRepository;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,9 +21,7 @@ public class AdminUsuariosController {
     private final UsuarioRepository usuarios;
     private final RolRepository roles;
 
-    public record AsignarAdministradorRequest(
-        @NotBlank @Email @Size(max=150) String correo
-    ) {}
+    public record AsignarAdministradorRequest(String correo) {}
     public record AdministradorView(Long idUsuario, String correo, String nombres, String apellidos) {}
 
     @GetMapping("/administradores")
@@ -40,7 +34,11 @@ public class AdminUsuariosController {
 
     @PutMapping("/administradores")
     @Transactional
-    public ResponseEntity<?> asignarAdministrador(@Valid @RequestBody AsignarAdministradorRequest request) {
+    public ResponseEntity<?> asignarAdministrador(@RequestBody AsignarAdministradorRequest request) {
+        if (request == null || request.correo() == null ||
+            !com.Monarca.Backend.service.PasswordRecoveryService.emailValido(request.correo())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ingresa un correo electrónico válido."));
+        }
         String correo = request.correo().trim().toLowerCase(java.util.Locale.ROOT);
         Usuario usuario = usuarios.findByCorreoIgnoreCase(correo).orElse(null);
         if (usuario == null) {
