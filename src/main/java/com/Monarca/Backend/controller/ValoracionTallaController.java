@@ -49,6 +49,37 @@ public class ValoracionTallaController {
             (rs, n) -> new Respuesta(rs.getLong("id_detalle"), rs.getString("ajuste")));
     }
 
+    public record Requisito(Long idDetalle, List<String> faltantes) {}
+
+    @GetMapping("/requisitos")
+    @Transactional(readOnly = true)
+    public List<Requisito> requisitos(Authentication auth) {
+        String correo = identidad(auth);
+        return db.query("""
+            SELECT d.id_detalle, c.nombre categoria,
+                   u.busto_cm, u.cintura_cm, u.cadera_cm
+              FROM monarca.detalles_pedido d
+              JOIN monarca.pedidos p ON p.id_pedido = d.id_pedido
+              JOIN monarca.usuarios u ON u.id_usuario = p.id_usuario
+              JOIN monarca.variantes_producto v ON v.id_variante = d.id_variante
+              JOIN monarca.productos pr ON pr.id_producto = v.id_producto
+              JOIN monarca.categorias c ON c.id_categoria = pr.id_categoria
+             WHERE lower(u.correo) = lower(:correo) AND u.activo = true
+               AND p.estado IN ('FINALIZADO','ENTREGADO','COMPLETADO')
+            """, Map.of("correo",correo), (rs, i) -> {
+                String categoria = rs.getString("categoria");
+                List<String> faltantes = new java.util.ArrayList<>();
+                if (!List.of("Tops","Bottoms","Vestidos").contains(categoria)) {
+                    faltantes.add("Categoría sin recomendación de tallas");
+                } else {
+                    if ((categoria.equals("Tops") || categoria.equals("Vestidos")) && rs.getBigDecimal("busto_cm") == null) faltantes.add("busto");
+                    if (rs.getBigDecimal("cintura_cm") == null) faltantes.add("cintura");
+                    if ((categoria.equals("Bottoms") || categoria.equals("Vestidos")) && rs.getBigDecimal("cadera_cm") == null) faltantes.add("cadera");
+                }
+                return new Requisito(rs.getLong("id_detalle"),faltantes);
+            });
+    }
+
     @PostMapping
     @Transactional
     public Respuesta valorar(Authentication auth, @RequestBody Solicitud solicitud) {
@@ -88,6 +119,21 @@ public class ValoracionTallaController {
         }
         if (!List.of("Tops","Bottoms","Vestidos").contains(fila.get("categoria"))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La prenda no tiene recomendaciones de tallas.");
+        }
+        String categoria = (String)fila.get("categoria");
+        List<String> medidasFaltantes = new java.util.ArrayList<>();
+        if ((categoria.equals("Tops") || categoria.equals("Vestidos")) && fila.get("busto_cm") == null) medidasFaltantes.add("busto");
+        if (fila.get("cintura_cm") == null) medidasFaltantes.add("cintura");
+        if ((categoria.equals("Bottoms") || categoria.equals("Vestidos")) && fila.get("cadera_cm") == null) medidasFaltantes.add("cadera");
+        if (!medidasFaltantes.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Completa en tu perfil las medidas de " + String.join(", ", medidasFaltantes) + " antes de valorar.");
+        }
+        if (((categoria.equals("Tops") || categoria.equals("Vestidos")) && fila.get("prenda_pecho_cm") == null)
+            || fila.get("prenda_cintura_cm") == null
+            || ((categoria.equals("Bottoms") || categoria.equals("Vestidos")) && fila.get("prenda_cadera_cm") == null)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Esta prenda no tiene sus medidas completas. Solicita al administrador que las registre.");
         }
         MapSqlParameterSource datos = new MapSqlParameterSource();
         for (String campo : List.of("id_detalle","id_usuario","id_variante","categoria",
