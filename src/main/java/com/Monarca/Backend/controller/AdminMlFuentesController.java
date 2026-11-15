@@ -22,7 +22,7 @@ import java.util.*;
 @PreAuthorize("hasAuthority('ROLE_ADMIN')")
 public class AdminMlFuentesController {
     private final JdbcTemplate db;
-    private static final Set<String> MODULOS = Set.of("TALLAS","OUTFITS","PATRONES");
+    private static final Set<String> MODULOS = Set.of("TALLAS","OUTFITS","PATRONES","CLUSTERING","DEMANDA");
     private static final Set<String> FUENTES = Set.of("REALES","PRUEBA");
 
     public AdminMlFuentesController(JdbcTemplate db) {this.db=db;}
@@ -39,9 +39,33 @@ public class AdminMlFuentesController {
     }
 
     private FuenteInfo informacion(String modulo,String fuente) {
+        if ("CLUSTERING".equals(modulo) || "DEMANDA".equals(modulo) || "OUTFITS".equals(modulo)) {
+            if ("PRUEBA".equals(fuente)) {
+                Long n=db.queryForObject("SELECT count(*) FROM monarca.ml_demo_registros WHERE modulo=?",Long.class,modulo);
+                return new FuenteInfo(modulo,fuente,n==null?0:n,true,
+                    "Dataset sintético de demostración; resultados no verificables con compradores reales.");
+            }
+            if ("OUTFITS".equals(modulo)) {
+                Long n=db.queryForObject("""
+                  SELECT count(*) FROM monarca.variantes_producto v1
+                  JOIN monarca.productos p1 ON p1.id_producto=v1.id_producto
+                  JOIN monarca.categorias c1 ON c1.id_categoria=p1.id_categoria
+                  CROSS JOIN monarca.variantes_producto v2
+                  JOIN monarca.productos p2 ON p2.id_producto=v2.id_producto
+                  JOIN monarca.categorias c2 ON c2.id_categoria=p2.id_categoria
+                  WHERE p1.activo AND p2.activo AND v1.activo AND v2.activo
+                    AND v1.stock>0 AND v2.stock>0
+                    AND c1.nombre='Tops' AND c2.nombre='Bottoms'
+                """,Long.class);
+                return new FuenteInfo(modulo,fuente,n==null?0:Math.min(n,300),true,
+                    "Combinaciones reales de productos disponibles; sin puntuaciones estéticas reales.");
+            }
+            return new FuenteInfo(modulo,fuente,0,false,
+                "Faltan datos históricos observados de visitas o comportamiento; selecciona Prueba.");
+        }
         if (!"TALLAS".equals(modulo)) {
             return new FuenteInfo(modulo,fuente,0,false,
-                "Configuración preparada. El dataset de este módulo aún no está conectado.");
+                "Módulo heredado pendiente de integración.");
         }
         long registros = "PRUEBA".equals(fuente)
           ? db.queryForObject("SELECT count(*) FROM monarca.ml_tallas_prueba",Long.class)
