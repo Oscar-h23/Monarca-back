@@ -140,6 +140,10 @@ public class SecurityConfig {
                                 "/api/pedidos/mis-pedidos"
                         ).authenticated()
 
+                        // Valoración de tallas: siempre identificada por JWT; el controlador valida propiedad.
+                        .requestMatchers(HttpMethod.GET, "/api/pedidos/valoraciones-talla").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/pedidos/valoraciones-talla").authenticated()
+
                         // Comprobante de pago (propietario) y boleta de prueba (propietario o admin).
                         .requestMatchers(HttpMethod.POST, "/api/pedidos/*/evidencia").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/pedidos/*/boleta-prueba").authenticated()
