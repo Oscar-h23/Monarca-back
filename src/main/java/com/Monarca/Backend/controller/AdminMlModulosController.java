@@ -100,7 +100,7 @@ public class AdminMlModulosController {
                       AND v1.stock>0 AND v2.stock>0
                       AND c1.nombre='Tops' AND c2.nombre='Bottoms'
                     ORDER BY v1.id_variante,v2.id_variante LIMIT 300
-                    """,(rs,i)->json.readTree(rs.getString(1)));
+                    """,(rs,i)->parsear(rs.getString(1)));
             } else {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                   "No hay datos reales suficientes con las variables requeridas para este módulo. Usa Prueba.");
