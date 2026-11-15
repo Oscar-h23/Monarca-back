@@ -115,6 +115,11 @@ public class OutfitsPublicosController {
                     || !"REALES".equals(salida.path("fuente").asText()))
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                         "El motor devolvió un resultado inesperado.");
+            if (salida.path("factibles").asInt()==0)
+                return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                    .body(Map.of("fuente","CATALOGO","factibles",0,
+                        "presupuestoSoles",presupuesto,
+                        "mensaje","No encontramos combinaciones dentro de ese presupuesto."));
             return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(Map.of(
                     "fuente","CATALOGO",
