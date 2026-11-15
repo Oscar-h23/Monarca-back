@@ -34,6 +34,11 @@ public class AdminMlModulosController {
         this.db=db;this.json=json;
     }
 
+    private JsonNode parsear(String contenido) {
+        try {return json.readTree(contenido);}
+        catch(Exception e) {throw new IllegalStateException("Datos JSON de ML inválidos",e);}
+    }
+
     @GetMapping("/resultados")
     @Transactional(readOnly=true)
     public List<Map<String,Object>> resultados() {
@@ -73,7 +78,7 @@ public class AdminMlModulosController {
                 registros=db.query("""
                     SELECT datos::text FROM monarca.ml_demo_registros
                      WHERE modulo=? ORDER BY numero
-                    """,(rs,i)->json.readTree(rs.getString(1)),m);
+                    """,(rs,i)->parsear(rs.getString(1)),m);
             } else if("OUTFITS".equals(m)) {
                 // Real: productos y precios del catálogo; valoración estética neutral (0).
                 registros=db.query("""
