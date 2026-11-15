@@ -22,7 +22,7 @@ import java.util.*;
 @PreAuthorize("hasAuthority('ROLE_ADMIN')")
 public class AdminMlFuentesController {
     private final JdbcTemplate db;
-    private static final Set<String> MODULOS = Set.of("TALLAS","OUTFITS","PATRONES","CLUSTERING","DEMANDA");
+    private static final Set<String> MODULOS = Set.of("TALLAS","OUTFITS","PATRONES","CLUSTERING","DEMANDA","COCOMPRA");
     private static final Set<String> FUENTES = Set.of("REALES","PRUEBA");
 
     public AdminMlFuentesController(JdbcTemplate db) {this.db=db;}
@@ -39,6 +39,19 @@ public class AdminMlFuentesController {
     }
 
     private FuenteInfo informacion(String modulo,String fuente) {
+        if ("COCOMPRA".equals(modulo)) {
+            Long n = "PRUEBA".equals(fuente)
+                ? db.queryForObject("SELECT count(DISTINCT id_cesta) FROM monarca.ml_cocompra_cestas_demo",Long.class)
+                : db.queryForObject("""
+                    SELECT count(DISTINCT p.id_pedido) FROM monarca.pedidos p
+                    JOIN monarca.detalles_pedido d ON d.id_pedido=p.id_pedido
+                    WHERE p.estado='FINALIZADO'
+                    """,Long.class);
+            return new FuenteInfo(modulo,fuente,n==null?0:n,true,
+                "PRUEBA".equals(fuente) ?
+                    "100 cestas de compra simuladas; asociaciones solo académicas." :
+                    "Pedidos finalizados auténticos; asociaciones solo con muestra suficiente.");
+        }
         if ("CLUSTERING".equals(modulo) || "DEMANDA".equals(modulo) || "OUTFITS".equals(modulo)) {
             if ("PRUEBA".equals(fuente)) {
                 Long n=db.queryForObject("SELECT count(*) FROM monarca.ml_demo_registros WHERE modulo=?",Long.class,modulo);
