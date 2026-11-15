@@ -9,6 +9,8 @@ import com.Monarca.Backend.repository.VarianteProductoRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +33,7 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/perfil/tallas")
 public class RecomendacionTallaController {
+    @Autowired private JdbcTemplate db;
     private final UsuarioRepository usuarios;
     private final ProductoRepository productos;
     private final VarianteProductoRepository variantes;
@@ -92,8 +95,16 @@ public class RecomendacionTallaController {
         try {
             String url=mlUrl.stripTrailing().replaceAll("/+$","")
                     + "/internal/v1/tallas/recomendar";
-            var payload=Map.of("categoria",categoria,"medidas",medidas,
-                    "variantes",opciones,"metodo","reglas");
+            Map<String,Object> payload=new LinkedHashMap<>();
+            payload.put("categoria",categoria);
+            payload.put("medidas",medidas);
+            payload.put("variantes",opciones);
+            List<Map<String,String>> activo=db.query(
+                "SELECT fuente,modelo_base64 FROM monarca.ml_modelos_talla WHERE activo=true LIMIT 1",
+                (rs,n)->Map.of("fuente",rs.getString(1),"modelo_base64",rs.getString(2)));
+            boolean experimental=!activo.isEmpty();
+            payload.put("metodo",experimental?"supervisado":"reglas");
+            if(experimental) payload.put("modelo_base64",activo.get(0).get("modelo_base64"));
             HttpRequest request=HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(5))
                     .header("Content-Type","application/json")
@@ -117,7 +128,11 @@ public class RecomendacionTallaController {
             salida.put("talla",resultado.path("talla").asText());
             salida.put("metodo",resultado.path("metodo").asText());
             salida.put("holgurasCm",json.convertValue(resultado.path("holguras_cm"),Map.class));
-            salida.put("aviso","Sugerencia orientativa basada en medidas de la prenda.");
+            salida.put("experimental",experimental);
+            salida.put("fuenteModelo",experimental?activo.get(0).get("fuente"):"REGLAS");
+            salida.put("aviso",experimental
+                ? "Predicción experimental; no validada con compradores reales."
+                : "Sugerencia orientativa basada en medidas de la prenda.");
             return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(salida);
         } catch(ResponseStatusException e) {throw e;}
           catch(Exception e) {
