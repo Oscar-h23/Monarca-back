@@ -97,6 +97,8 @@ public class SecurityConfig {
                                 "/api/categorias/**"
                         ).permitAll()
 
+                        // Armador público: consulta solo productos publicados con stock.
+                        .requestMatchers(HttpMethod.GET, "/api/outfits/recomendar").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/metodos-pago").permitAll()
                         // Operaciones del backoffice aisladas por rol.
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
