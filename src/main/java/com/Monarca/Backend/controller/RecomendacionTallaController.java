@@ -118,6 +118,7 @@ public class RecomendacionTallaController {
             if(resultado.isMissingNode()||resultado.isNull())
                 return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                         .body(Map.of("recomendacion",Map.of(),"disponible",false,
+                                "experimental",experimental,
                                 "motivo",root.path("motivo").asText("No hay talla compatible.")));
             long id=resultado.path("variante_id").asLong(-1);
             boolean valida=opciones.stream().anyMatch(v->((Long)v.get("id_variante"))==id);
