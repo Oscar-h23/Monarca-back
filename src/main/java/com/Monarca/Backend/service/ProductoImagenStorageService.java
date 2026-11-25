@@ -45,7 +45,7 @@ public class ProductoImagenStorageService {
 
     public String subir(MultipartFile archivo) {
         if(archivo==null || archivo.isEmpty() || archivo.getSize()>MAX_BYTES) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona una imagen JPG o PNG de hasta 5 MB.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona una imagen JPG, PNG o WebP de hasta 5 MB.");
         }
         if(apiKey==null || apiKey.isBlank())
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
@@ -59,7 +59,7 @@ public class ProductoImagenStorageService {
                     .header("Authorization","Bearer "+apiKey)
                     .header("apikey",apiKey)
                     .header("Content-Type",imagen.mime())
-                    .header("Cache-Control","max-age=3600")
+                    .header("Cache-Control","max-age=31536000")
                     .header("x-upsert","false")
                     .POST(HttpRequest.BodyPublishers.ofByteArray(imagen.datos()))
                     .build();
@@ -88,9 +88,10 @@ public class ProductoImagenStorageService {
         if(datos==null || datos.length==0 || datos.length>MAX_BYTES)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagen vacía o mayor de 5 MB.");
         String mime=PerfilService.detectarMime(datos);
+        if("image/webp".equals(mime))return validarWebp(datos);
         if(!"image/jpeg".equals(mime) && !"image/png".equals(mime))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Sube un archivo JPG o PNG. Las imágenes WebP se convierten a JPG en el navegador.");
+                    "Sube un archivo JPG, PNG o WebP. ");
         try(ImageInputStream input=ImageIO.createImageInputStream(new ByteArrayInputStream(datos))) {
             if(input==null)throw new IOException("Archivo sin imagen.");
             Iterator<ImageReader> lectores=ImageIO.getImageReaders(input);
@@ -132,7 +133,46 @@ public class ProductoImagenStorageService {
         } catch(ResponseStatusException e){throw e;}
         catch(IOException | RuntimeException e){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La imagen no se pudo leer. Selecciona una fotografía JPG o PNG válida.");
+                    "La imagen no se pudo leer. Selecciona una fotografía JPG, PNG o WebP válida.");
+        }
+    }
+
+    // WebP generado por canvas: admite solamente imagen estática y chunks de imagen,
+    // sin EXIF, XMP, perfiles ni datos anexos. Valida y decodifica antes de guardar.
+    private static ImagenValida validarWebp(byte[] datos) {
+        try {
+            if(datos.length<20)throw new IOException();
+            java.nio.ByteBuffer b=java.nio.ByteBuffer.wrap(datos).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            if(Integer.toUnsignedLong(b.getInt(4))+8!=datos.length)throw new IOException();
+            int pos=12, imagenes=0;
+            while(pos<datos.length){
+                if(datos.length-pos<8)throw new IOException();
+                String chunk=new String(datos,pos,4,StandardCharsets.US_ASCII);
+                long n=Integer.toUnsignedLong(b.getInt(pos+4));
+                long fin=pos+8L+n+(n&1);
+                if(fin>datos.length)throw new IOException();
+                switch(chunk){
+                    case "VP8 ", "VP8L" -> imagenes++;
+                    case "VP8X" -> {if(n!=10 || (datos[pos+8]&~0x10)!=0)throw new IOException();}
+                    case "ALPH" -> {}
+                    default -> throw new IOException();
+                }
+                pos=(int)fin;
+            }
+            if(imagenes!=1)throw new IOException();
+            try(ImageInputStream input=ImageIO.createImageInputStream(new ByteArrayInputStream(datos))){
+                Iterator<ImageReader> readers=ImageIO.getImageReaders(input);
+                if(!readers.hasNext())throw new IOException();
+                ImageReader reader=readers.next();
+                try{
+                    reader.setInput(input,true,true);
+                    int w=reader.getWidth(0),h=reader.getHeight(0);
+                    if(w<1||h<1||w>2048||h>2048||(long)w*h>MAX_PIXELES||reader.read(0)==null)throw new IOException();
+                }finally{reader.dispose();}
+            }
+            return new ImagenValida(datos,"image/webp","webp");
+        }catch(IOException|RuntimeException e){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"WebP inválido. Selecciona una imagen estática de hasta 2048 píxeles, sin metadatos.");
         }
     }
 
